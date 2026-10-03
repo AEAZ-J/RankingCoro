@@ -222,3 +222,127 @@ code{background:var(--surface-2);padding:2px 5px;border-radius:5px}
     font-size:.65rem;
   }
 }
+
+/* Mobile-first hardening: no horizontal scrolling in ranking content */
+@media(max-width:700px){
+  html,body{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+  }
+
+  .wrap,
+  .rankings,
+  .level,
+  .table-wrap,
+  table,
+  tbody,
+  tr{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+  }
+
+  .tabs{
+    margin:0;
+    padding:3px 0 14px;
+    display:flex;
+    flex-wrap:wrap;
+    overflow:visible;
+    gap:7px;
+  }
+
+  .tabs button{
+    flex:0 1 auto;
+    padding:9px 12px;
+    font-size:.88rem;
+  }
+
+  .table-wrap{
+    overflow:hidden;
+  }
+
+  table{
+    display:block;
+    table-layout:fixed;
+  }
+
+  tbody{
+    display:block;
+  }
+
+  tbody tr + tr{
+    margin-top:9px;
+  }
+
+  tr{
+    display:grid;
+    grid-template-columns:48px minmax(0,1fr);
+    grid-template-areas:
+      "pos name"
+      "pos votes"
+      "pos diff";
+    column-gap:10px;
+    row-gap:4px;
+    padding:11px;
+    overflow:hidden;
+  }
+
+  .pos{
+    grid-area:pos;
+    min-width:0;
+    padding-right:9px;
+  }
+
+  .name{
+    grid-area:name;
+    width:100%;
+    min-width:0;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+
+  .votes{
+    grid-area:votes;
+    width:100%;
+    min-width:0;
+    text-align:left;
+    white-space:normal;
+    font-size:1rem;
+  }
+
+  .votes::before{
+    content:"Votos: ";
+    color:var(--muted);
+    font-size:.78rem;
+    font-weight:650;
+  }
+
+  .votes::after{
+    content:"";
+    display:none;
+  }
+
+  .diff{
+    grid-area:diff;
+    width:100%;
+    min-width:0;
+    text-align:left;
+    overflow-wrap:anywhere;
+  }
+
+  .level-tag{
+    max-width:100%;
+    width:fit-content;
+    overflow-wrap:anywhere;
+  }
+}
+
+@media(max-width:360px){
+  .wrap{padding-left:9px;padding-right:9px}
+  .summary{gap:6px}
+  .summary>div{padding:10px 7px}
+  .summary span{font-size:1.12rem}
+  .tabs button{font-size:.82rem;padding:8px 10px}
+  tr{grid-template-columns:44px minmax(0,1fr);padding:10px 9px}
+}
