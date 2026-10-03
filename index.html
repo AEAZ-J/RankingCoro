@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
+  <title>Ranking de coros</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Juntos Suena Mejor</p>
+        <h1>Ranking por votos</h1>
+        <p class="sub">Rankings independientes por nivel. Datos de la votación pública.</p>
+      </div>
+      <div class="statusbox">
+        <span id="dot" class="dot"></span>
+        <div>
+          <strong id="status">Cargando…</strong>
+          <small id="updated">—</small>
+        </div>
+      </div>
+    </header>
+
+    <section id="warning" class="warning hidden" role="status"></section>
+
+    <section class="summary" aria-label="Resumen">
+      <div><span id="groupCount">—</span><small>coros</small></div>
+      <div><span id="voteCount">—</span><small>votos contabilizados</small></div>
+      <div><span id="levelCount">—</span><small>niveles</small></div>
+    </section>
+
+    <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
+    <section id="rankings" class="rankings" aria-live="polite"></section>
+
+    <footer>
+      <p>Fuente: <a href="https://app.juntossuenamejor.cl/votacion" target="_blank" rel="noopener">votación pública Juntos Suena Mejor</a>.</p>
+      <p>La página consulta <code>data.json</code> cada 15 segundos. GitHub actualiza los datos aproximadamente cada 5 minutos.</p>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
