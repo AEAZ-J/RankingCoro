@@ -3,7 +3,6 @@ import { readFile, writeFile } from "node:fs/promises";
 
 const SOURCE="https://app.juntossuenamejor.cl/votacion";
 const DATA="data.json";
-const LEVELS=["Inicial","Intermedio","Avanzado","Coro participante"];
 
 const known=[
   ["UDP STAR","Inicial"],["Ñuñosingers","Inicial"],["Pulso Vocal","Inicial"],["Aguas de Maule","Inicial"],
@@ -19,7 +18,6 @@ function parseVotes(s){
   const m=s.match(/(\d[\d.\s]*)\s*votos?/i);
   return m ? Number(m[1].replace(/[.\s]/g,"")) : null;
 }
-function normalize(s){return s.replace(/\s+/g," ").trim();}
 
 let previous={groups:[]};
 try{ previous=JSON.parse(await readFile(DATA,"utf8")); }catch{}
@@ -50,29 +48,12 @@ try{
     if(votes!==null) groups.push({...item,votes});
   }
 
-  const lines=body.split(/\r?\n/).map(normalize).filter(Boolean);
-  for(let i=0;i<lines.length;i++){
-    if(!/\d[\d.\s]*\s*votos?/i.test(lines[i])) continue;
-    const votes=parseVotes(lines[i]);
-    if(votes===null) continue;
-    const window=lines.slice(Math.max(0,i-8),i+2);
-    const level=[...LEVELS].find(l=>window.some(x=>x.toLowerCase()===l.toLowerCase()));
-    if(!level) continue;
-    const candidates=window.filter(x=>
-      x.length>2 &&
-      !LEVELS.some(l=>x.toLowerCase()===l.toLowerCase()) &&
-      !/\d[\d.\s]*\s*votos?/i.test(x) &&
-      !/^(votar|seleccionar|primera ronda|ronda final|votación pública)$/i.test(x)
-    );
-    const name=candidates.at(-1);
-    if(name && !groups.some(g=>g.name.toLowerCase()===name.toLowerCase())){
-      groups.push({name,level,votes});
-    }
+  if(groups.length!==known.length){
+    throw new Error(`Se esperaban ${known.length} coros y se pudieron leer ${groups.length}; se conserva la última lectura válida.`);
   }
 
-  if(groups.length<10) throw new Error(`Solo se pudieron leer ${groups.length} coros; se conserva la última lectura válida.`);
-
   groups.sort((a,b)=>a.level.localeCompare(b.level,"es") || b.votes-a.votes);
+
   await writeFile(DATA,JSON.stringify({
     source:SOURCE,
     round:"Primera ronda",
@@ -80,6 +61,7 @@ try{
     stale:false,
     groups
   },null,2));
+
   console.log(`OK: ${groups.length} coros actualizados`);
 }catch(err){
   console.error(err);
