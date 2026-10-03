@@ -5,9 +5,37 @@ const statusEl = document.querySelector("#status");
 const updatedEl = document.querySelector("#updated");
 const dot = document.querySelector("#dot");
 const warning = document.querySelector("#warning");
+const themeToggle = document.querySelector("#themeToggle");
+const themeIcon = document.querySelector("#themeIcon");
+const themeLabel = document.querySelector("#themeLabel");
+const themeMeta = document.querySelector('meta[name="theme-color"]');
 
 let selected = "Todos";
 let lastSignature = "";
+
+function applyTheme(theme, persist=false){
+  const next = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = next;
+  themeIcon.textContent = next === "dark" ? "☀️" : "🌙";
+  themeLabel.textContent = next === "dark" ? "Modo día" : "Modo noche";
+  themeMeta?.setAttribute("content", next === "dark" ? "#0b1220" : "#f8fafc");
+  themeToggle?.setAttribute("aria-pressed", String(next === "dark"));
+  if(persist){
+    try{ localStorage.setItem("ranking-theme", next); }catch{}
+  }
+}
+
+function initTheme(){
+  let saved = null;
+  try{ saved = localStorage.getItem("ranking-theme"); }catch{}
+  const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+  applyTheme(saved || (systemDark ? "dark" : "light"));
+
+  themeToggle?.addEventListener("click",()=>{
+    const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    applyTheme(current === "dark" ? "light" : "dark", true);
+  });
+}
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -97,5 +125,7 @@ async function load(){
     warning.textContent="No se pudo cargar data.json. "+err.message;
   }
 }
+
+initTheme();
 load();
 setInterval(load,15000);
