@@ -27,6 +27,18 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
+      - name: Probar API directa y CORS
+        shell: bash
+        run: |
+          set +e
+          code=$(curl -sS -o /tmp/api.json -D /tmp/api.headers -w "%{http_code}"             -H "Origin: https://aeaz-j.github.io"             "https://app.juntossuenamejor.cl/api/voting/choirs?round_code=first")
+          echo "API_HTTP_STATUS=$code"
+          echo "CORS headers:"
+          grep -i "^access-control-" /tmp/api.headers || true
+          echo "Response sample:"
+          head -c 1000 /tmp/api.json || true
+          echo
+
       - name: Preparar Node
         uses: actions/setup-node@v4
         with:
