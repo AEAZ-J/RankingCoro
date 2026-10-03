@@ -1,0 +1,28 @@
+{
+  "source": "https://app.juntossuenamejor.cl/votacion",
+  "round": "Primera ronda",
+  "updatedAt": "2026-10-03T22:30:00.000Z",
+  "stale": true,
+  "error": "Datos iniciales de respaldo. GitHub Actions los reemplazará al ejecutar el workflow.",
+  "groups": [
+    {"name":"UDP STAR","level":"Inicial","votes":4},
+    {"name":"Ñuñosingers","level":"Inicial","votes":485},
+    {"name":"Pulso Vocal","level":"Inicial","votes":42},
+    {"name":"Aguas de Maule","level":"Inicial","votes":496},
+    {"name":"AM de El Bosque","level":"Intermedio","votes":351},
+    {"name":"Inti jalsu","level":"Intermedio","votes":1212},
+    {"name":"Coro libre de cantar","level":"Intermedio","votes":125},
+    {"name":"Celestia Choir","level":"Intermedio","votes":1128},
+    {"name":"Æternum ensamble coral","level":"Intermedio","votes":434},
+    {"name":"Juntas para cantar","level":"Intermedio","votes":321},
+    {"name":"Octava Nota","level":"Intermedio","votes":923},
+    {"name":"Estelares","level":"Intermedio","votes":1250},
+    {"name":"A viva voz","level":"Avanzado","votes":246},
+    {"name":"Aura Vocal","level":"Avanzado","votes":1055},
+    {"name":"Cuarteto Albores","level":"Avanzado","votes":1251},
+    {"name":"Coro de profesores de Valparaíso","level":"Avanzado","votes":562},
+    {"name":"Coro Aitué de La Araucanía","level":"Avanzado","votes":879},
+    {"name":"Coro Juntos Suena Mejor - D3","level":"Coro participante","votes":307},
+    {"name":"Coro Juntos Suena Mejor - D143","level":"Coro participante","votes":2}
+  ]
+}
