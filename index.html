@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#111827">
+  <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
   <link rel="stylesheet" href="styles.css">
@@ -11,16 +11,24 @@
 <body>
   <main class="wrap">
     <header class="hero">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow">Juntos Suena Mejor</p>
         <h1>Ranking por votos</h1>
         <p class="sub">Rankings independientes por nivel. Datos de la votación pública.</p>
       </div>
-      <div class="statusbox">
-        <span id="dot" class="dot"></span>
-        <div>
-          <strong id="status">Cargando…</strong>
-          <small id="updated">—</small>
+
+      <div class="hero-actions">
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Cambiar entre modo día y noche">
+          <span id="themeIcon" aria-hidden="true">🌙</span>
+          <span id="themeLabel">Modo noche</span>
+        </button>
+
+        <div class="statusbox">
+          <span id="dot" class="dot"></span>
+          <div>
+            <strong id="status">Cargando…</strong>
+            <small id="updated">—</small>
+          </div>
         </div>
       </div>
     </header>
