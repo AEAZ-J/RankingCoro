@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
@@ -14,7 +14,7 @@
       <div class="hero-copy">
         <p class="eyebrow">Juntos Suena Mejor</p>
         <h1>Ranking por votos</h1>
-        <p class="sub">Rankings independientes por nivel. Datos de la votación pública.</p>
+        <p class="sub">Ranking general y por nivel a partir de la votación pública.</p>
       </div>
 
       <div class="hero-actions">
@@ -25,7 +25,7 @@
 
         <div class="statusbox">
           <span id="dot" class="dot"></span>
-          <div>
+          <div class="status-text">
             <strong id="status">Cargando…</strong>
             <small id="updated">—</small>
           </div>
@@ -37,9 +37,14 @@
 
     <section class="summary" aria-label="Resumen">
       <div><span id="groupCount">—</span><small>coros</small></div>
-      <div><span id="voteCount">—</span><small>votos contabilizados</small></div>
+      <div><span id="voteCount">—</span><small>votos</small></div>
       <div><span id="levelCount">—</span><small>niveles</small></div>
     </section>
+
+    <div class="mobile-filter">
+      <label for="mobileLevelSelect">Ver ranking</label>
+      <select id="mobileLevelSelect" aria-label="Seleccionar ranking"></select>
+    </div>
 
     <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
     <section id="rankings" class="rankings" aria-live="polite"></section>
