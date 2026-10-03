@@ -10,7 +10,7 @@ const themeIcon = document.querySelector("#themeIcon");
 const themeLabel = document.querySelector("#themeLabel");
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 
-let selected = "Todos";
+let selected = "General";
 let lastSignature = "";
 
 function applyTheme(theme, persist=false){
@@ -51,7 +51,7 @@ function levelSort(a,b){
 }
 
 function setTabs(levels){
-  const labels=["Todos",...levels];
+  const labels=["General",...levels];
   tabs.innerHTML=labels.map(label =>
     `<button type="button" data-level="${esc(label)}" class="${selected===label?"active":""}">${esc(label)}</button>`
   ).join("");
@@ -60,10 +60,38 @@ function setTabs(levels){
       selected=btn.dataset.level;
       document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b===btn));
       document.querySelectorAll(".level").forEach(sec=>{
-        sec.classList.toggle("hidden-level", selected!=="Todos" && sec.dataset.level!==selected);
+        sec.classList.toggle("hidden-level", sec.dataset.level!==selected);
       });
     });
   });
+}
+
+function rowsMarkup(rows, leader, showLevel=false){
+  return rows.map((g,i)=>`<tr>
+    <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
+    <td class="name">
+      ${esc(g.name)}
+      ${showLevel ? `<span class="level-tag">${esc(g.level)}</span>` : ""}
+    </td>
+    <td class="votes">${n(g.votes)}</td>
+    <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
+  </tr>`).join("");
+}
+
+function rankingSection(title, dataLevel, rows, showLevel=false){
+  const leader=rows[0]?.votes||0;
+  return `<article class="level ${selected!==dataLevel?"hidden-level":""}" data-level="${esc(dataLevel)}">
+    <div class="level-head">
+      <h2>${esc(title)}</h2>
+      <span>${rows.length} ${rows.length===1?"coro":"coros"}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th style="text-align:right">Dif. líder</th></tr></thead>
+        <tbody>${rowsMarkup(rows,leader,showLevel)}</tbody>
+      </table>
+    </div>
+  </article>`;
 }
 
 function render(data){
@@ -78,27 +106,15 @@ function render(data){
   document.querySelector("#levelCount").textContent=n(levels.length);
   setTabs(levels);
 
-  rankings.innerHTML=levels.map(level=>{
+  const generalRows=[...groups].sort((a,b)=>(b.votes||0)-(a.votes||0));
+  const sections=[rankingSection("Ranking general","General",generalRows,true)];
+
+  for(const level of levels){
     const rows=groups.filter(g=>g.level===level).sort((a,b)=>(b.votes||0)-(a.votes||0));
-    const leader=rows[0]?.votes||0;
-    return `<article class="level ${selected!=="Todos"&&selected!==level?"hidden-level":""}" data-level="${esc(level)}">
-      <div class="level-head">
-        <h2>${esc(level)}</h2>
-        <span>${rows.length} ${rows.length===1?"coro":"coros"}</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th style="text-align:right">Dif. líder</th></tr></thead>
-          <tbody>${rows.map((g,i)=>`<tr>
-            <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
-            <td class="name">${esc(g.name)}</td>
-            <td class="votes">${n(g.votes)}</td>
-            <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
-          </tr>`).join("")}</tbody>
-        </table>
-      </div>
-    </article>`;
-  }).join("");
+    sections.push(rankingSection(level,level,rows,false));
+  }
+
+  rankings.innerHTML=sections.join("");
 
   const dt=data.updatedAt?new Date(data.updatedAt):null;
   updatedEl.textContent=dt && !Number.isNaN(dt.valueOf())
