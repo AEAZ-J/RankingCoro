@@ -68,7 +68,11 @@ function chooseLevel(label){
   selected=label;
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.level===selected));
   if(mobileSelect&&mobileSelect.value!==selected)mobileSelect.value=selected;
-  document.querySelectorAll(".level").forEach(sec=>sec.classList.toggle("hidden-level",sec.dataset.level!==selected));
+  document.querySelectorAll(".level").forEach(sec=>{
+    const hide=sec.dataset.level!==selected;
+    sec.hidden=hide;
+    sec.classList.toggle("hidden-level",hide);
+  });
   updateCategoryTotal();
 }
 function setFilters(levels){
@@ -102,10 +106,12 @@ function mobileCards(rows,leader,showLevel){
 }
 function rankingSection(title,dataLevel,rows,showLevel=false){
   const leader=rows[0]?.votes||0;
-  return `<section class="level ${selected!==dataLevel?"hidden-level":""}" data-level="${esc(dataLevel)}">
+  const total=rows.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+  const isHidden=selected!==dataLevel;
+  return `<section class="level ${isHidden?"hidden-level":""}" data-level="${esc(dataLevel)}" ${isHidden?"hidden":""}>
     <div class="level-head">
       <h2>${esc(title)}</h2>
-      <span>${rows.length} ${rows.length===1?"coro":"coros"}</span>
+      <span>${rows.length} ${rows.length===1?"coro":"coros"} · ${n(total)} votos</span>
     </div>
     <div class="desktop-table">
       <table>
