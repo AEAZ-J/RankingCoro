@@ -256,3 +256,29 @@ a{color:inherit}
 @media(prefers-reduced-motion:reduce){body{transition:none}}
 [hidden]{display:none!important}
 .level.hidden-level{display:none!important}
+
+.change{
+  min-width:210px;
+  color:var(--muted);
+  font-size:.78rem;
+  white-space:nowrap;
+}
+.change span{
+  display:inline-block;
+  margin-right:9px;
+  font-variant-numeric:tabular-nums;
+}
+.mobile-change{
+  display:none;
+}
+@media(max-width:700px){
+  .mobile-change{
+    display:flex;
+    flex-wrap:wrap;
+    gap:4px 9px;
+    margin-top:7px;
+    color:var(--muted);
+    font-size:.72rem;
+    font-variant-numeric:tabular-nums;
+  }
+}
