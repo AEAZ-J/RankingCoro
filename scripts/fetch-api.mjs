@@ -107,4 +107,16 @@ try{
     stale:true,
     error:String(err?.message||err)
   },null,2));
+
+  try{
+    const snapshots=await loadPublishedHistory();
+    if(snapshots.length){
+      await writeFile(HISTORY,JSON.stringify({
+        version:1,
+        source:API,
+        updatedAt:snapshots.at(-1)?.at || new Date().toISOString(),
+        snapshots
+      }));
+    }
+  }catch{}
 }
