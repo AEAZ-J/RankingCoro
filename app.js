@@ -225,8 +225,10 @@ function chartGainBars(gains,palette){
 }
 function chartRankMap(groups,snapshot){
   if(!snapshot?.votes)return null;
-  const ranked=groups.map((g,i)=>({name:g.name,votes:Number(snapshot.votes[g.name]),base:i}));
-  if(ranked.some(g=>!Number.isFinite(g.votes)))return null;
+  const ranked=groups
+    .map((g,i)=>({name:g.name,votes:Number(snapshot.votes[g.name]),base:i}))
+    .filter(g=>Number.isFinite(g.votes));
+  if(!ranked.length)return null;
   ranked.sort((x,y)=>(y.votes-x.votes)||(x.base-y.base));
   return new Map(ranked.map((g,i)=>[g.name,i+1]));
 }
@@ -442,12 +444,14 @@ function changeSpans(ch){
 function rankMapAt(rows,snapshot){
   if(!snapshot?.votes)return null;
   const baseOrder=new Map(currentGroups.map((g,i)=>[g.name,i]));
-  const ranked=rows.map(g=>({
-    name:g.name,
-    votes:Number(snapshot.votes[g.name]),
-    base:baseOrder.get(g.name)??9999
-  }));
-  if(ranked.some(g=>!Number.isFinite(g.votes)))return null;
+  const ranked=rows
+    .map(g=>({
+      name:g.name,
+      votes:Number(snapshot.votes[g.name]),
+      base:baseOrder.get(g.name)??9999
+    }))
+    .filter(g=>Number.isFinite(g.votes));
+  if(!ranked.length)return null;
   ranked.sort((x,y)=>(y.votes-x.votes)||(x.base-y.base));
   return new Map(ranked.map((g,i)=>[g.name,i+1]));
 }
@@ -462,8 +466,8 @@ function latestRankMoves(rows){
     if(!previousRanks)continue;
     for(const g of rows){
       if(moves.has(g.name))continue;
-      const now=currentRanks.get(g.name);
-      const before=previousRanks.get(g.name);
+      const now=currentRanks?.get(g.name);
+      const before=previousRanks?.get(g.name);
       if(Number.isFinite(now)&&Number.isFinite(before)&&now!==before){
         moves.set(g.name,{delta:before-now,at:historySnapshots[i].at});
       }
