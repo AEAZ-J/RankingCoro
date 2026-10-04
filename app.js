@@ -70,8 +70,9 @@ function sanitizeExtraWindows(values){
 }
 function loadExtraWindows(){
   try{
-    const saved=JSON.parse(localStorage.getItem("ranking-change-windows"));
-    return sanitizeExtraWindows(saved);
+    const raw=localStorage.getItem("ranking-change-windows");
+    if(!raw)return [...DEFAULT_EXTRA_WINDOWS];
+    return sanitizeExtraWindows(JSON.parse(raw));
   }catch{
     return [...DEFAULT_EXTRA_WINDOWS];
   }
