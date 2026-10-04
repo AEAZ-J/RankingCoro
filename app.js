@@ -15,6 +15,7 @@ const themeLabel = document.querySelector("#themeLabel");
 const themeMeta = document.querySelector('meta[name="theme-color"]');
 const categoryTotalLabel = document.querySelector("#categoryTotalLabel");
 const categoryVoteCount = document.querySelector("#categoryVoteCount");
+const categoryChange = document.querySelector("#categoryChange");
 
 let selected = "Intermedio";
 let lastSignature = "";
@@ -91,14 +92,50 @@ function groupChanges(name,currentVotes){
     h24:diffAtHours(24)
   };
 }
+function categoryChanges(groups){
+  if(historySnapshots.length<2||!groups.length)return {last:null,h1:null,h6:null,h12:null,h24:null};
+  const names=groups.map(g=>g.name);
+  const currentTotal=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+  const latest=historySnapshots.at(-1);
+  const previous=historySnapshots.at(-2);
+  const latestMs=Date.parse(latest?.at);
+  if(!Number.isFinite(latestMs))return {last:null,h1:null,h6:null,h12:null,h24:null};
+
+  const totalAt=s=>{
+    if(!s?.votes)return null;
+    let total=0;
+    for(const name of names){
+      const value=Number(s.votes[name]);
+      if(!Number.isFinite(value))return null;
+      total+=value;
+    }
+    return total;
+  };
+  const diffFrom=s=>{
+    const before=totalAt(s);
+    return before===null?null:currentTotal-before;
+  };
+  const diffAtHours=hours=>diffFrom(snapshotBefore(latestMs-hours*60*60*1000));
+
+  return {
+    last:diffFrom(previous),
+    h1:diffAtHours(1),
+    h6:diffAtHours(6),
+    h12:diffAtHours(12),
+    h24:diffAtHours(24)
+  };
+}
+
 function selectedGroups(){
   return selected==="General" ? currentGroups : currentGroups.filter(g=>g.level===selected);
 }
 function updateCategoryTotal(){
   const groups=selectedGroups();
   const total=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+  const ch=categoryChanges(groups);
   categoryTotalLabel.textContent=selected==="General" ? "Todos los coros" : selected;
   categoryVoteCount.textContent=`${n(total)} votos`;
+  categoryChange.textContent=`Últ. ${deltaText(ch.last)} · 1h ${deltaText(ch.h1)} · 6h ${deltaText(ch.h6)} · 12h ${deltaText(ch.h12)} · 24h ${deltaText(ch.h24)}`;
 }
 function chooseLevel(label){
   selected=label;
