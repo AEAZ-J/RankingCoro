@@ -6,7 +6,6 @@ const REFRESH_MS = 15000;
 const rankings = document.querySelector("#rankings");
 const tabs = document.querySelector("#tabs");
 const statusEl = document.querySelector("#status");
-const updatedEl = document.querySelector("#updated");
 const dot = document.querySelector("#dot");
 const warning = document.querySelector("#warning");
 const themeToggle = document.querySelector("#themeToggle");
@@ -57,13 +56,6 @@ function levelSort(a,b){
   return ia-ib;
 }
 
-function chileDateKey(value){
-  const dt=value instanceof Date?value:new Date(value);
-  if(Number.isNaN(dt.valueOf()))return "";
-  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Santiago",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(dt);
-  const get=t=>parts.find(p=>p.type===t)?.value||"";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
 function snapshotBefore(targetMs){
   let found=null;
   for(const s of historySnapshots){
@@ -73,53 +65,36 @@ function snapshotBefore(targetMs){
   }
   return found;
 }
-function snapshotForToday(latestAt){
-  const key=chileDateKey(latestAt);
-  return historySnapshots.find(s=>chileDateKey(s.at)===key)||null;
-}
 function deltaText(v){
   if(v===null||v===undefined||!Number.isFinite(v))return "—";
   return `${v>=0?"+":""}${n(v)}`;
 }
 function groupChanges(name,currentVotes){
-  if(historySnapshots.length<2)return {last:null,hour:null,today:null};
+  if(historySnapshots.length<2)return {h1:null,h6:null,h12:null,h24:null};
   const latest=historySnapshots.at(-1);
   const latestMs=Date.parse(latest.at);
-  const prev=historySnapshots.at(-2);
-  const hour=snapshotBefore(latestMs-60*60*1000);
-  const today=snapshotForToday(latest.at);
+  if(!Number.isFinite(latestMs))return {h1:null,h6:null,h12:null,h24:null};
   const value=s=>s&&Number.isFinite(Number(s.votes?.[name]))?Number(s.votes[name]):null;
-  const diff=s=>{
-    const before=value(s);
+  const diffAtHours=hours=>{
+    const snap=snapshotBefore(latestMs-hours*60*60*1000);
+    const before=value(snap);
     return before===null?null:currentVotes-before;
   };
-  return {last:diff(prev),hour:diff(hour),today:diff(today)};
+  return {
+    h1:diffAtHours(1),
+    h6:diffAtHours(6),
+    h12:diffAtHours(12),
+    h24:diffAtHours(24)
+  };
 }
-function categoryTodayDelta(groups){
-  if(historySnapshots.length<2)return null;
-  const latest=historySnapshots.at(-1);
-  const start=snapshotForToday(latest.at);
-  if(!start)return null;
-  let delta=0,found=false;
-  for(const g of groups){
-    const before=Number(start.votes?.[g.name]);
-    if(Number.isFinite(before)){
-      delta+=(Number(g.votes)||0)-before;
-      found=true;
-    }
-  }
-  return found?delta:null;
-}
-
 function selectedGroups(){
   return selected==="General" ? currentGroups : currentGroups.filter(g=>g.level===selected);
 }
 function updateCategoryTotal(){
   const groups=selectedGroups();
   const total=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
-  const today=categoryTodayDelta(groups);
   categoryTotalLabel.textContent=selected==="General" ? "Todos los coros" : selected;
-  categoryVoteCount.textContent=`${n(total)} votos${today===null?"":` · ${deltaText(today)} hoy`}`;
+  categoryVoteCount.textContent=`${n(total)} votos`;
 }
 function chooseLevel(label){
   selected=label;
@@ -143,7 +118,7 @@ function desktopRows(rows,leader,showLevel){
       <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
-      <td class="change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.hour)}</span><span>Hoy ${deltaText(ch.today)}</span></td>
+      <td class="change"><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></td>
       <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
     </tr>`;
   }).join("");
@@ -160,7 +135,7 @@ function mobileCards(rows,leader,showLevel){
           <span class="mobile-votes">${n(g.votes)} votos</span>
           <span class="mobile-diff">${i===0?"Líder":"−"+n(leader-(Number(g.votes)||0))+" del líder"}</span>
         </div>
-        <div class="mobile-change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.hour)}</span><span>Hoy ${deltaText(ch.today)}</span></div>
+        <div class="mobile-change"><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></div>
       </div>
     </article>`;
   }).join("");
@@ -216,10 +191,6 @@ function render(data){
   updateStatus(data);
 }
 function updateStatus(data){
-  const dt=data.updatedAt?new Date(data.updatedAt):null;
-  updatedEl.textContent=dt&&!Number.isNaN(dt.valueOf())
-    ? new Intl.DateTimeFormat("es-CL",{dateStyle:"short",timeStyle:"medium",timeZone:"America/Santiago"}).format(dt)
-    : "Hora no disponible";
   dot.className="dot "+(data.stale?"stale":"live");
   statusEl.textContent=data.stale?"Último dato disponible":"Datos actualizados";
   warning.classList.toggle("hidden",!data.stale);
