@@ -186,6 +186,43 @@ function chartVoteGains(){
     })
     .filter(item=>Number.isFinite(item.gain));
 }
+function chartGainsSummary(gains,palette){
+  const totalGain=gains.reduce((sum,item)=>sum+item.gain,0);
+  if(!gains.length)return "";
+  return `
+    <div class="chart-gains">
+      <div class="chart-gains-total">
+        <span>Votos sumados · ${esc(chartPeriodLabel())}</span>
+        <strong>${deltaText(totalGain)} votos</strong>
+      </div>
+      <div class="chart-gains-list">
+        ${gains.map((item,i)=>`
+          <span class="chart-gain-item">
+            <i style="background:${palette[i%palette.length]}"></i>
+            <b>${esc(item.name)}</b>
+            <strong>${deltaText(item.gain)}</strong>
+          </span>`).join("")}
+      </div>
+    </div>`;
+}
+function chartGainBars(gains,palette){
+  if(!gains.length)return "";
+  const maxGain=Math.max(1,...gains.map(item=>Math.max(0,item.gain)));
+  return `
+    <div class="chart-bars" role="img" aria-label="Votos sumados en el periodo">
+      ${gains.map((item,i)=>{
+        const width=Math.max(2,Math.max(0,item.gain)/maxGain*100);
+        return `
+          <div class="chart-bar-row">
+            <div class="chart-bar-label" title="${esc(item.name)}">${esc(item.name)}</div>
+            <div class="chart-bar-track">
+              <div class="chart-bar-fill" style="width:${width}%;background:${palette[i%palette.length]}"></div>
+            </div>
+            <strong class="chart-bar-value">${deltaText(item.gain)}</strong>
+          </div>`;
+      }).join("")}
+    </div>`;
+}
 function chartRankMap(groups,snapshot){
   if(!snapshot?.votes)return null;
   const ranked=groups.map((g,i)=>({name:g.name,votes:Number(snapshot.votes[g.name]),base:i}));
@@ -224,6 +261,22 @@ function renderChart(){
   if(!chartCanvas||!chartEmpty)return;
   ensureChartSelection();
   renderChartChoirs();
+  const type=chartType?.value||"votes";
+  const palette=["#2563eb","#16a34a","#d97706","#9333ea"];
+  const gains=chartVoteGains();
+
+  if(type==="gain"){
+    if(!gains.length){
+      chartCanvas.innerHTML="";
+      chartEmpty.hidden=false;
+      chartEmpty.textContent="Aún no hay suficiente historial para calcular votos sumados.";
+      return;
+    }
+    chartEmpty.hidden=true;
+    chartCanvas.innerHTML=chartGainsSummary(gains,palette)+chartGainBars(gains,palette);
+    return;
+  }
+
   const series=chartSeries();
   if(!series.length){
     chartCanvas.innerHTML="";
@@ -240,7 +293,6 @@ function renderChart(){
   const maxT=Math.max(...allPoints.map(p=>p.t));
   let minY=Math.min(...allPoints.map(p=>p.y));
   let maxY=Math.max(...allPoints.map(p=>p.y));
-  const type=chartType?.value||"votes";
   if(type==="rank"){
     minY=1;
     maxY=Math.max(2,...allPoints.map(p=>p.y));
@@ -254,7 +306,6 @@ function renderChart(){
       ? pad.t+ratio*(height-pad.t-pad.b)
       : height-pad.b-ratio*(height-pad.t-pad.b);
   };
-  const palette=["#2563eb","#16a34a","#d97706","#9333ea"];
   const ticks=4;
   const yTicks=Array.from({length:ticks+1},(_,i)=>{
     const ratio=i/ticks;
@@ -279,23 +330,7 @@ function renderChart(){
   }).join("");
   const legend=series.map((s,i)=>`
     <span class="chart-legend-item"><i style="background:${palette[i%palette.length]}"></i>${esc(s.name)}</span>`).join("");
-  const gains=chartVoteGains();
-  const totalGain=gains.reduce((sum,item)=>sum+item.gain,0);
-  const gainsHtml=gains.length ? `
-    <div class="chart-gains">
-      <div class="chart-gains-total">
-        <span>Votos sumados · ${esc(chartPeriodLabel())}</span>
-        <strong>${deltaText(totalGain)} votos</strong>
-      </div>
-      <div class="chart-gains-list">
-        ${gains.map((item,i)=>`
-          <span class="chart-gain-item">
-            <i style="background:${palette[i%palette.length]}"></i>
-            <b>${esc(item.name)}</b>
-            <strong>${deltaText(item.gain)}</strong>
-          </span>`).join("")}
-      </div>
-    </div>` : "";
+  const gainsHtml=chartGainsSummary(gains,palette);
   chartCanvas.innerHTML=`
     ${gainsHtml}
     <div class="chart-legend">${legend}</div>
