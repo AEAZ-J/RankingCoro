@@ -279,7 +279,7 @@ function renderChart(){
   ensureChartSelection();
   renderChartChoirs();
   const type=chartType?.value||"votes";
-  const palette=["#2563eb","#16a34a","#d97706","#9333ea"];
+  const palette=["#2563eb","#16a34a","#d97706","#9333ea","#dc2626","#0891b2"];
   const gains=chartVoteGains();
 
   if(type==="gain"){
