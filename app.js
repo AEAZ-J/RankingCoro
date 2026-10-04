@@ -16,11 +16,17 @@ const themeMeta = document.querySelector('meta[name="theme-color"]');
 const categoryTotalLabel = document.querySelector("#categoryTotalLabel");
 const categoryVoteCount = document.querySelector("#categoryVoteCount");
 const categoryChange = document.querySelector("#categoryChange");
+const windowChips = document.querySelector("#windowChips");
+const windowSelect = document.querySelector("#windowSelect");
 
 let selected = "Intermedio";
 let lastSignature = "";
 let currentGroups = [];
 let historySnapshots = [];
+let latestData = null;
+const DEFAULT_EXTRA_WINDOWS = [6,12,24];
+const OPTIONAL_WINDOWS = [0.5,...Array.from({length:23},(_,i)=>i+2)];
+let extraWindows = loadExtraWindows();
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -57,6 +63,60 @@ function levelSort(a,b){
   if(ib===-1)return -1;
   return ia-ib;
 }
+function windowLabel(hours){return hours===0.5?"30m":`${hours}h`}
+function sanitizeExtraWindows(values){
+  const allowed=new Set(OPTIONAL_WINDOWS);
+  return [...new Set((Array.isArray(values)?values:[]).map(Number).filter(v=>allowed.has(v)))].sort((x,y)=>x-y);
+}
+function loadExtraWindows(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("ranking-change-windows"));
+    return sanitizeExtraWindows(saved);
+  }catch{
+    return [...DEFAULT_EXTRA_WINDOWS];
+  }
+}
+function saveExtraWindows(){
+  try{localStorage.setItem("ranking-change-windows",JSON.stringify(extraWindows))}catch{}
+}
+function requestedHours(){
+  return [...new Set([1,...extraWindows])].sort((x,y)=>x-y);
+}
+function renderWindowPicker(){
+  if(!windowChips||!windowSelect)return;
+  windowChips.innerHTML=[
+    '<span class="window-chip locked">Últ.</span>',
+    '<span class="window-chip locked">1h</span>',
+    ...extraWindows.map(hours=>`<button class="window-chip" type="button" data-remove-window="${hours}" title="Quitar ${windowLabel(hours)}">${windowLabel(hours)} <span aria-hidden="true">×</span></button>`)
+  ].join("");
+  const available=OPTIONAL_WINDOWS.filter(hours=>!extraWindows.includes(hours));
+  windowSelect.innerHTML='<option value="">Agregar intervalo…</option>'+
+    available.map(hours=>`<option value="${hours}">${windowLabel(hours)}</option>`).join("");
+  windowSelect.disabled=!available.length;
+}
+function refreshForWindowChange(){
+  lastSignature="";
+  renderWindowPicker();
+  if(latestData)render(latestData);
+}
+function initWindowPicker(){
+  renderWindowPicker();
+  windowSelect?.addEventListener("change",()=>{
+    if(!windowSelect.value)return;
+    extraWindows=sanitizeExtraWindows([...extraWindows,Number(windowSelect.value)]);
+    saveExtraWindows();
+    windowSelect.value="";
+    refreshForWindowChange();
+  });
+  windowChips?.addEventListener("click",event=>{
+    const button=event.target.closest("[data-remove-window]");
+    if(!button)return;
+    const hours=Number(button.dataset.removeWindow);
+    extraWindows=extraWindows.filter(v=>v!==hours);
+    saveExtraWindows();
+    refreshForWindowChange();
+  });
+}
 
 function snapshotBefore(targetMs){
   let found=null;
@@ -71,36 +131,31 @@ function deltaText(v){
   if(v===null||v===undefined||!Number.isFinite(v))return "—";
   return `${v>=0?"+":""}${n(v)}`;
 }
-function groupChanges(name,currentVotes){
-  if(historySnapshots.length<2)return {last:null,h1:null,h6:null,h12:null,h24:null};
-  const latest=historySnapshots.at(-1);
-  const previous=historySnapshots.at(-2);
-  const latestMs=Date.parse(latest.at);
-  if(!Number.isFinite(latestMs))return {last:null,h1:null,h6:null,h12:null,h24:null};
-  const value=s=>s&&Number.isFinite(Number(s.votes?.[name]))?Number(s.votes[name]):null;
-  const previousValue=value(previous);
-  const diffAtHours=hours=>{
-    const snap=snapshotBefore(latestMs-hours*60*60*1000);
-    const before=value(snap);
-    return before===null?null:currentVotes-before;
-  };
-  return {
-    last:previousValue===null?null:currentVotes-previousValue,
-    h1:diffAtHours(1),
-    h6:diffAtHours(6),
-    h12:diffAtHours(12),
-    h24:diffAtHours(24)
-  };
-}
-function categoryChanges(groups){
-  if(historySnapshots.length<2||!groups.length)return {last:null,h1:null,h6:null,h12:null,h24:null};
-  const names=groups.map(g=>g.name);
-  const currentTotal=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+function voteChanges(valueAt,currentVotes){
+  if(historySnapshots.length<2)return {last:null,byHours:{}};
   const latest=historySnapshots.at(-1);
   const previous=historySnapshots.at(-2);
   const latestMs=Date.parse(latest?.at);
-  if(!Number.isFinite(latestMs))return {last:null,h1:null,h6:null,h12:null,h24:null};
+  if(!Number.isFinite(latestMs))return {last:null,byHours:{}};
 
+  const diffFrom=s=>{
+    const before=valueAt(s);
+    return before===null?null:currentVotes-before;
+  };
+  const byHours={};
+  for(const hours of requestedHours()){
+    byHours[hours]=diffFrom(snapshotBefore(latestMs-hours*60*60*1000));
+  }
+  return {last:diffFrom(previous),byHours};
+}
+function groupChanges(name,currentVotes){
+  const valueAt=s=>s&&Number.isFinite(Number(s.votes?.[name]))?Number(s.votes[name]):null;
+  return voteChanges(valueAt,currentVotes);
+}
+function categoryChanges(groups){
+  if(!groups.length)return {last:null,byHours:{}};
+  const names=groups.map(g=>g.name);
+  const currentTotal=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
   const totalAt=s=>{
     if(!s?.votes)return null;
     let total=0;
@@ -111,21 +166,17 @@ function categoryChanges(groups){
     }
     return total;
   };
-  const diffFrom=s=>{
-    const before=totalAt(s);
-    return before===null?null:currentTotal-before;
-  };
-  const diffAtHours=hours=>diffFrom(snapshotBefore(latestMs-hours*60*60*1000));
-
-  return {
-    last:diffFrom(previous),
-    h1:diffAtHours(1),
-    h6:diffAtHours(6),
-    h12:diffAtHours(12),
-    h24:diffAtHours(24)
-  };
+  return voteChanges(totalAt,currentTotal);
 }
-
+function changeParts(ch){
+  return [
+    `Últ. ${deltaText(ch.last)}`,
+    ...requestedHours().map(hours=>`${windowLabel(hours)} ${deltaText(ch.byHours?.[hours])}`)
+  ];
+}
+function changeSpans(ch){
+  return changeParts(ch).map(part=>`<span>${part}</span>`).join("");
+}
 function selectedGroups(){
   return selected==="General" ? currentGroups : currentGroups.filter(g=>g.level===selected);
 }
@@ -135,7 +186,7 @@ function updateCategoryTotal(){
   const ch=categoryChanges(groups);
   categoryTotalLabel.textContent=selected==="General" ? "Todos los coros" : selected;
   categoryVoteCount.textContent=`${n(total)} votos`;
-  categoryChange.textContent=`Últ. ${deltaText(ch.last)} · 1h ${deltaText(ch.h1)} · 6h ${deltaText(ch.h6)} · 12h ${deltaText(ch.h12)} · 24h ${deltaText(ch.h24)}`;
+  categoryChange.textContent=changeParts(ch).join(" · ");
 }
 function chooseLevel(label){
   selected=label;
@@ -159,7 +210,7 @@ function desktopRows(rows,leader,showLevel){
       <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
-      <td class="change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></td>
+      <td class="change">${changeSpans(ch)}</td>
       <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
     </tr>`;
   }).join("");
@@ -176,7 +227,7 @@ function mobileCards(rows,leader,showLevel){
           <span class="mobile-votes">${n(g.votes)} votos</span>
           <span class="mobile-diff">${i===0?"Líder":"−"+n(leader-(Number(g.votes)||0))+" del líder"}</span>
         </div>
-        <div class="mobile-change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></div>
+        <div class="mobile-change">${changeSpans(ch)}</div>
       </div>
     </article>`;
   }).join("");
@@ -200,6 +251,7 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
   </section>`;
 }
 function render(data){
+  latestData=data;
   const groups=Array.isArray(data.groups)?data.groups:[];
   currentGroups=groups;
   const levels=[...new Set(groups.map(g=>g.level).filter(Boolean))].sort(levelSort);
@@ -277,5 +329,6 @@ async function load(){
 }
 
 initTheme();
+initWindowPicker();
 load();
 setInterval(load,REFRESH_MS);
