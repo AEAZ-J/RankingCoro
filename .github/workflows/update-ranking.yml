@@ -27,6 +27,12 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
+      - name: Validar archivos
+        run: |
+          node --check app.js
+          node --check scripts/fetch-api.mjs
+          node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('data.json','utf8')); JSON.parse(fs.readFileSync('history.json','utf8'));"
+
       - name: Leer API de votación
         run: node scripts/fetch-api.mjs
 
