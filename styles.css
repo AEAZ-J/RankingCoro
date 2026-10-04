@@ -97,8 +97,7 @@ h1{margin:0;font-size:clamp(2rem,6vw,3.5rem);line-height:1}
 .theme-toggle:hover,.theme-toggle:focus-visible{opacity:1}
 .statusbox{display:flex;align-items:center;gap:10px;border-radius:14px;padding:12px 14px;margin-top:48px}
 .status-text{min-width:0}
-.statusbox strong,.statusbox small{display:block}
-.statusbox small{color:var(--muted);margin-top:3px}
+.statusbox strong{display:block}
 .dot{width:12px;height:12px;border-radius:50%;background:#94a3b8;flex:0 0 auto}
 .dot.live{background:#16a34a}
 .dot.stale{background:#d97706}
@@ -183,7 +182,6 @@ a{color:inherit}
   .hero-actions{margin-top:12px;min-width:0;width:100%;display:block}
   .statusbox{min-width:0;padding:9px 11px;margin-top:0;width:100%}
   .statusbox strong{font-size:.86rem}
-  .statusbox small{font-size:.7rem;white-space:normal}
   .summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:14px 0}
   .summary>div{padding:10px 6px;text-align:center;min-width:0}
   .summary span{font-size:1.15rem}
@@ -258,7 +256,7 @@ a{color:inherit}
 .level.hidden-level{display:none!important}
 
 .change{
-  min-width:210px;
+  min-width:270px;
   color:var(--muted);
   font-size:.78rem;
   white-space:nowrap;
