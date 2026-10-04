@@ -4,7 +4,6 @@ const REFRESH_MS = 15000;
 
 const rankings = document.querySelector("#rankings");
 const tabs = document.querySelector("#tabs");
-const mobileSelect = document.querySelector("#mobileLevelSelect");
 const statusEl = document.querySelector("#status");
 const updatedEl = document.querySelector("#updated");
 const dot = document.querySelector("#dot");
@@ -67,7 +66,6 @@ function updateCategoryTotal(){
 function chooseLevel(label){
   selected=label;
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.level===selected));
-  if(mobileSelect&&mobileSelect.value!==selected)mobileSelect.value=selected;
   document.querySelectorAll(".level").forEach(sec=>{
     const hide=sec.dataset.level!==selected;
     sec.hidden=hide;
@@ -79,9 +77,6 @@ function setFilters(levels){
   const labels=["General",...levels];
   tabs.innerHTML=labels.map(label=>`<button type="button" data-level="${esc(label)}" class="${selected===label?"active":""}">${esc(label)}</button>`).join("");
   tabs.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>chooseLevel(btn.dataset.level)));
-  mobileSelect.innerHTML=labels.map(label=>`<option value="${esc(label)}">${esc(label)}</option>`).join("");
-  mobileSelect.value=labels.includes(selected)?selected:"Intermedio";
-  mobileSelect.onchange=()=>chooseLevel(mobileSelect.value);
 }
 function desktopRows(rows,leader,showLevel){
   return rows.map((g,i)=>`<tr>
