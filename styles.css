@@ -254,3 +254,5 @@ a{color:inherit}
   .mobile-votes{font-size:.95rem}
 }
 @media(prefers-reduced-motion:reduce){body{transition:none}}
+[hidden]{display:none!important}
+.level.hidden-level{display:none!important}
