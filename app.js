@@ -133,12 +133,12 @@ function ensureChartSelection(){
   const groups=chartGroups().sort((x,y)=>(y.votes||0)-(x.votes||0));
   if(chartSelectionLevel!==selected){
     chartSelectionLevel=selected;
-    chartSelectedNames=new Set(groups.slice(0,3).map(g=>g.name));
+    chartSelectedNames=new Set(groups.slice(0,4).map(g=>g.name));
   }else{
     const valid=new Set(groups.map(g=>g.name));
     chartSelectedNames=new Set([...chartSelectedNames].filter(name=>valid.has(name)));
     if(!chartSelectedNames.size){
-      chartSelectedNames=new Set(groups.slice(0,3).map(g=>g.name));
+      chartSelectedNames=new Set(groups.slice(0,4).map(g=>g.name));
     }
   }
 }
@@ -368,7 +368,7 @@ function initCharts(){
     const input=event.target.closest('input[type="checkbox"]');
     if(!input)return;
     if(input.checked){
-      if(chartSelectedNames.size>=4){
+      if(chartSelectedNames.size>=6){
         input.checked=false;
         return;
       }
