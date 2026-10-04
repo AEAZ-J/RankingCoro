@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
-  <link rel="stylesheet" href="styles.css?v=20261003-13">
+  <link rel="stylesheet" href="styles.css?v=20261003-14">
 </head>
 <body>
   <main class="wrap">
@@ -41,18 +41,21 @@
       <div><span id="levelCount">—</span><small>niveles</small></div>
     </section>
 
-    <section class="window-picker" aria-label="Intervalos de cambio">
-      <div class="window-picker-copy">
-        <strong>Cambios a mostrar</strong>
-        <small>Últ. y 1h siempre visibles</small>
-      </div>
+    <details class="window-picker">
+      <summary class="window-picker-summary">
+        <div class="window-picker-copy">
+          <strong>Cambios a mostrar</strong>
+          <small>Últ. y 1h siempre visibles</small>
+        </div>
+        <span class="window-picker-chevron" aria-hidden="true">⌄</span>
+      </summary>
       <div class="window-picker-controls">
         <div id="windowChips" class="window-chips"></div>
         <select id="windowSelect" aria-label="Agregar intervalo">
           <option value="">Agregar intervalo…</option>
         </select>
       </div>
-    </section>
+    </details>
 
     <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
 
