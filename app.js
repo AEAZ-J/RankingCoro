@@ -160,7 +160,31 @@ function chartSnapshots(){
   if(value==="all")return historySnapshots;
   const hours=Number(value);
   const cutoff=latestMs-hours*60*60*1000;
-  return historySnapshots.filter(s=>Date.parse(s.at)>=cutoff);
+  const baseline=snapshotBefore(cutoff);
+  const visible=historySnapshots.filter(s=>Date.parse(s.at)>cutoff);
+  if(baseline&&!visible.includes(baseline))visible.unshift(baseline);
+  return visible;
+}
+function chartPeriodLabel(){
+  const value=chartPeriod?.value||"6";
+  return value==="all" ? "todo el historial" : `${value}h`;
+}
+function chartVoteGains(){
+  const snaps=chartSnapshots();
+  if(snaps.length<2)return [];
+  const first=snaps[0];
+  const last=snaps.at(-1);
+  return chartGroups()
+    .filter(g=>chartSelectedNames.has(g.name))
+    .map(g=>{
+      const start=Number(first.votes?.[g.name]);
+      const end=Number(last.votes?.[g.name]);
+      return {
+        name:g.name,
+        gain:Number.isFinite(start)&&Number.isFinite(end)?end-start:null
+      };
+    })
+    .filter(item=>Number.isFinite(item.gain));
 }
 function chartRankMap(groups,snapshot){
   if(!snapshot?.votes)return null;
@@ -255,7 +279,25 @@ function renderChart(){
   }).join("");
   const legend=series.map((s,i)=>`
     <span class="chart-legend-item"><i style="background:${palette[i%palette.length]}"></i>${esc(s.name)}</span>`).join("");
+  const gains=chartVoteGains();
+  const totalGain=gains.reduce((sum,item)=>sum+item.gain,0);
+  const gainsHtml=gains.length ? `
+    <div class="chart-gains">
+      <div class="chart-gains-total">
+        <span>Votos sumados · ${esc(chartPeriodLabel())}</span>
+        <strong>${deltaText(totalGain)} votos</strong>
+      </div>
+      <div class="chart-gains-list">
+        ${gains.map((item,i)=>`
+          <span class="chart-gain-item">
+            <i style="background:${palette[i%palette.length]}"></i>
+            <b>${esc(item.name)}</b>
+            <strong>${deltaText(item.gain)}</strong>
+          </span>`).join("")}
+      </div>
+    </div>` : "";
   chartCanvas.innerHTML=`
+    ${gainsHtml}
     <div class="chart-legend">${legend}</div>
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfico histórico">
       ${yTicks}
