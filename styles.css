@@ -257,7 +257,7 @@ a{color:inherit}
 .level.hidden-level{display:none!important}
 
 .change{
-  min-width:270px;
+  min-width:330px;
   color:var(--muted);
   font-size:.78rem;
   white-space:nowrap;
