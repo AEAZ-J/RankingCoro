@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
-  <link rel="stylesheet" href="styles.css?v=20261003-14">
+  <link rel="stylesheet" href="styles.css?v=20261003-15">
 </head>
 <body>
   <main class="wrap">
@@ -59,6 +59,45 @@
 
     <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
 
+    <details class="chart-panel">
+      <summary class="chart-panel-summary">
+        <div>
+          <strong>📈 Gráficos</strong>
+          <small>Evolución histórica del ranking</small>
+        </div>
+        <span class="window-picker-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="chart-panel-body">
+        <div class="chart-toolbar">
+          <label>
+            <span>Gráfico</span>
+            <select id="chartType">
+              <option value="votes">Evolución de votos</option>
+              <option value="rank">Posición en el ranking</option>
+              <option value="gap">Diferencia con el líder</option>
+            </select>
+          </label>
+          <label>
+            <span>Periodo</span>
+            <select id="chartPeriod">
+              <option value="1">1h</option>
+              <option value="3">3h</option>
+              <option value="6" selected>6h</option>
+              <option value="12">12h</option>
+              <option value="24">24h</option>
+              <option value="all">Todo</option>
+            </select>
+          </label>
+        </div>
+        <div>
+          <div class="chart-section-label">Coros · máximo 4</div>
+          <div id="chartChoirs" class="chart-choirs"></div>
+        </div>
+        <div id="chartEmpty" class="chart-empty">Cargando historial…</div>
+        <div id="chartCanvas" class="chart-canvas"></div>
+      </div>
+    </details>
+
     <section class="category-total" aria-live="polite">
       <div class="category-total-info">
         <span id="categoryTotalLabel">Intermedio</span>
@@ -73,6 +112,6 @@
       <p>Fuente: <a href="https://app.juntossuenamejor.cl/votacion" target="_blank" rel="noopener">votación pública Juntos Suena Mejor</a>.</p>
     </footer>
   </main>
-  <script src="app.js?v=20261003-13"></script>
+  <script src="app.js?v=20261003-15"></script>
 </body>
 </html>
