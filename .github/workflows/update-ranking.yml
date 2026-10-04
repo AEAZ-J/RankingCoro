@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  schedule:
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
 
 permissions:
   contents: read
@@ -25,13 +27,13 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Preparar Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
       - name: Leer API de votación
         run: node scripts/fetch-api.mjs
+
+      - name: Preparar sitio
+        run: |
+          mkdir -p _site
+          cp index.html styles.css app.js data.json history.json _site/
 
       - name: Configurar Pages
         uses: actions/configure-pages@v5
@@ -39,7 +41,7 @@ jobs:
       - name: Subir sitio
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ./_site
 
       - name: Publicar
         id: deployment
