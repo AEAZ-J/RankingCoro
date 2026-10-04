@@ -73,7 +73,7 @@ button,select,a{-webkit-tap-highlight-color:transparent}
 .eyebrow{margin:0 0 6px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:.76rem;color:var(--muted)}
 h1{margin:0;font-size:clamp(2rem,6vw,3.5rem);line-height:1}
 .sub{color:var(--muted);margin:12px 0 0;line-height:1.45}
-.theme-toggle,.statusbox,.summary>div,.desktop-table,.mobile-card,.category-total,.window-picker{
+.theme-toggle,.statusbox,.summary>div,.desktop-table,.mobile-card,.category-total,.window-picker,.chart-panel{
   background:var(--surface);
   border:1px solid var(--border);
   box-shadow:var(--shadow);
@@ -188,6 +188,62 @@ button.window-chip{cursor:pointer}
 }
 .tabs button.active{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
 .theme-toggle:focus-visible,.tabs button:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
+.chart-panel{
+  border-radius:14px;
+  margin:0 0 12px;
+  overflow:hidden;
+}
+.chart-panel-summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:11px 13px;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+}
+.chart-panel-summary::-webkit-details-marker{display:none}
+.chart-panel-summary strong,.chart-panel-summary small{display:block}
+.chart-panel-summary strong{font-size:.9rem}
+.chart-panel-summary small{color:var(--muted);font-size:.7rem;margin-top:2px}
+.chart-panel[open] .window-picker-chevron{transform:rotate(180deg)}
+.chart-panel-body{padding:12px 13px 14px;border-top:1px solid var(--border-soft)}
+.chart-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.chart-toolbar label{display:flex;align-items:center;gap:6px}
+.chart-toolbar label>span,.chart-section-label{font-size:.72rem;color:var(--muted);font-weight:700}
+.chart-toolbar select{
+  min-height:34px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+  border-radius:9px;
+  padding:5px 8px;
+  font:inherit;
+  font-size:.78rem;
+}
+.chart-section-label{margin-bottom:6px}
+.chart-choirs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chart-choir-option{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  border:1px solid var(--border);
+  background:var(--surface-2);
+  border-radius:999px;
+  padding:5px 8px;
+  font-size:.72rem;
+  cursor:pointer;
+}
+.chart-choir-option input{margin:0}
+.chart-empty{padding:28px 8px;text-align:center;color:var(--muted);font-size:.82rem}
+.chart-canvas{min-width:0}
+.chart-canvas svg{display:block;width:100%;height:auto;min-height:250px;overflow:visible}
+.chart-grid{stroke:var(--border-soft);stroke-width:1}
+.chart-axis-label{fill:var(--muted);font-size:11px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin:4px 0 8px;font-size:.72rem;color:var(--muted)}
+.chart-legend-item{display:inline-flex;align-items:center;gap:5px}
+.chart-legend-item i{width:9px;height:9px;border-radius:50%;display:inline-block}
 .category-total{
   display:flex;
   align-items:center;
@@ -298,6 +354,15 @@ a{color:inherit}
     font-size:.86rem;
     flex:0 1 auto;
   }
+  .chart-panel-summary{padding:9px 10px}
+  .chart-panel-body{padding:10px}
+  .chart-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .chart-toolbar label{display:block}
+  .chart-toolbar label>span{display:block;margin-bottom:3px}
+  .chart-toolbar select{width:100%;font-size:.72rem}
+  .chart-choir-option{font-size:.68rem;padding:5px 7px}
+  .chart-canvas svg{min-height:220px}
+  .chart-axis-label{font-size:10px}
   .category-total{padding:10px 12px;margin:0 0 12px}
   .category-total{align-items:flex-start}
   .category-total span{font-size:.8rem}
