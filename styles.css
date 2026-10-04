@@ -134,8 +134,17 @@ h1{margin:0;font-size:clamp(2rem,6vw,3.5rem);line-height:1}
   padding:12px 15px;
   margin:0 0 14px;
 }
+.category-total-info{min-width:0}
 .category-total span{color:var(--muted);font-size:.9rem;font-weight:700}
-.category-total strong{font-size:1.15rem;font-variant-numeric:tabular-nums}
+.category-change{
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:.76rem;
+  font-variant-numeric:tabular-nums;
+  line-height:1.35;
+}
+.category-total strong{font-size:1.15rem;font-variant-numeric:tabular-nums;white-space:nowrap}
 .level{margin:8px 0 28px;min-width:0}
 .level-head{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:10px}
 .level h2{margin:0;font-size:1.45rem}
@@ -201,7 +210,9 @@ a{color:inherit}
     flex:0 1 auto;
   }
   .category-total{padding:10px 12px;margin:0 0 12px}
+  .category-total{align-items:flex-start}
   .category-total span{font-size:.8rem}
+  .category-change{font-size:.7rem;margin-top:3px}
   .category-total strong{font-size:1rem}
   .level{margin:0 0 22px;width:100%;max-width:100%}
   .level-head{align-items:center;margin-bottom:8px}
