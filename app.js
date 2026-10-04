@@ -71,17 +71,20 @@ function deltaText(v){
   return `${v>=0?"+":""}${n(v)}`;
 }
 function groupChanges(name,currentVotes){
-  if(historySnapshots.length<2)return {h1:null,h6:null,h12:null,h24:null};
+  if(historySnapshots.length<2)return {last:null,h1:null,h6:null,h12:null,h24:null};
   const latest=historySnapshots.at(-1);
+  const previous=historySnapshots.at(-2);
   const latestMs=Date.parse(latest.at);
-  if(!Number.isFinite(latestMs))return {h1:null,h6:null,h12:null,h24:null};
+  if(!Number.isFinite(latestMs))return {last:null,h1:null,h6:null,h12:null,h24:null};
   const value=s=>s&&Number.isFinite(Number(s.votes?.[name]))?Number(s.votes[name]):null;
+  const previousValue=value(previous);
   const diffAtHours=hours=>{
     const snap=snapshotBefore(latestMs-hours*60*60*1000);
     const before=value(snap);
     return before===null?null:currentVotes-before;
   };
   return {
+    last:previousValue===null?null:currentVotes-previousValue,
     h1:diffAtHours(1),
     h6:diffAtHours(6),
     h12:diffAtHours(12),
@@ -119,7 +122,7 @@ function desktopRows(rows,leader,showLevel){
       <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
-      <td class="change"><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></td>
+      <td class="change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></td>
       <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
     </tr>`;
   }).join("");
@@ -136,7 +139,7 @@ function mobileCards(rows,leader,showLevel){
           <span class="mobile-votes">${n(g.votes)} votos</span>
           <span class="mobile-diff">${i===0?"Líder":"−"+n(leader-(Number(g.votes)||0))+" del líder"}</span>
         </div>
-        <div class="mobile-change"><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></div>
+        <div class="mobile-change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.h1)}</span><span>6h ${deltaText(ch.h6)}</span><span>12h ${deltaText(ch.h12)}</span><span>24h ${deltaText(ch.h24)}</span></div>
       </div>
     </article>`;
   }).join("");
@@ -194,8 +197,19 @@ function render(data){
 }
 function updateStatus(data){
   const dt=data.updatedAt?new Date(data.updatedAt):null;
+  const latest=historySnapshots.at(-1);
+  const previous=historySnapshots.at(-2);
+  const latestMs=latest?Date.parse(latest.at):NaN;
+  const previousMs=previous?Date.parse(previous.at):NaN;
+  let intervalText="";
+  if(Number.isFinite(latestMs)&&Number.isFinite(previousMs)&&latestMs>=previousMs){
+    const totalSeconds=Math.round((latestMs-previousMs)/1000);
+    const minutes=Math.floor(totalSeconds/60);
+    const seconds=totalSeconds%60;
+    intervalText=` · intervalo: ${minutes}m ${String(seconds).padStart(2,"0")}s`;
+  }
   updatedEl.textContent=dt&&!Number.isNaN(dt.valueOf())
-    ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)
+    ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)+intervalText
     : "Hora no disponible";
   dot.className="dot "+(data.stale?"stale":"live");
   statusEl.textContent=data.stale?"Último dato disponible":"Datos actualizados";
