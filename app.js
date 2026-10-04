@@ -1,5 +1,6 @@
 const LEVEL_ORDER = ["Inicial","Intermedio","Avanzado","Coro participante"];
 const FALLBACK_DATA = "data.json";
+const HISTORY_DATA = "history.json";
 const REFRESH_MS = 15000;
 
 const rankings = document.querySelector("#rankings");
@@ -18,6 +19,7 @@ const categoryVoteCount = document.querySelector("#categoryVoteCount");
 let selected = "Intermedio";
 let lastSignature = "";
 let currentGroups = [];
+let historySnapshots = [];
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -54,14 +56,70 @@ function levelSort(a,b){
   if(ib===-1)return -1;
   return ia-ib;
 }
+
+function chileDateKey(value){
+  const dt=value instanceof Date?value:new Date(value);
+  if(Number.isNaN(dt.valueOf()))return "";
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Santiago",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(dt);
+  const get=t=>parts.find(p=>p.type===t)?.value||"";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+function snapshotBefore(targetMs){
+  let found=null;
+  for(const s of historySnapshots){
+    const t=Date.parse(s.at);
+    if(Number.isFinite(t)&&t<=targetMs)found=s;
+    else if(Number.isFinite(t)&&t>targetMs)break;
+  }
+  return found;
+}
+function snapshotForToday(latestAt){
+  const key=chileDateKey(latestAt);
+  return historySnapshots.find(s=>chileDateKey(s.at)===key)||null;
+}
+function deltaText(v){
+  if(v===null||v===undefined||!Number.isFinite(v))return "—";
+  return `${v>=0?"+":""}${n(v)}`;
+}
+function groupChanges(name,currentVotes){
+  if(historySnapshots.length<2)return {last:null,hour:null,today:null};
+  const latest=historySnapshots.at(-1);
+  const latestMs=Date.parse(latest.at);
+  const prev=historySnapshots.at(-2);
+  const hour=snapshotBefore(latestMs-60*60*1000);
+  const today=snapshotForToday(latest.at);
+  const value=s=>s&&Number.isFinite(Number(s.votes?.[name]))?Number(s.votes[name]):null;
+  const diff=s=>{
+    const before=value(s);
+    return before===null?null:currentVotes-before;
+  };
+  return {last:diff(prev),hour:diff(hour),today:diff(today)};
+}
+function categoryTodayDelta(groups){
+  if(historySnapshots.length<2)return null;
+  const latest=historySnapshots.at(-1);
+  const start=snapshotForToday(latest.at);
+  if(!start)return null;
+  let delta=0,found=false;
+  for(const g of groups){
+    const before=Number(start.votes?.[g.name]);
+    if(Number.isFinite(before)){
+      delta+=(Number(g.votes)||0)-before;
+      found=true;
+    }
+  }
+  return found?delta:null;
+}
+
 function selectedGroups(){
   return selected==="General" ? currentGroups : currentGroups.filter(g=>g.level===selected);
 }
 function updateCategoryTotal(){
   const groups=selectedGroups();
   const total=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+  const today=categoryTodayDelta(groups);
   categoryTotalLabel.textContent=selected==="General" ? "Todos los coros" : selected;
-  categoryVoteCount.textContent=`${n(total)} votos`;
+  categoryVoteCount.textContent=`${n(total)} votos${today===null?"":` · ${deltaText(today)} hoy`}`;
 }
 function chooseLevel(label){
   selected=label;
@@ -79,25 +137,33 @@ function setFilters(levels){
   tabs.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>chooseLevel(btn.dataset.level)));
 }
 function desktopRows(rows,leader,showLevel){
-  return rows.map((g,i)=>`<tr>
-    <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
-    <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
-    <td class="votes">${n(g.votes)}</td>
-    <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
-  </tr>`).join("");
+  return rows.map((g,i)=>{
+    const ch=groupChanges(g.name,Number(g.votes)||0);
+    return `<tr>
+      <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
+      <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
+      <td class="votes">${n(g.votes)}</td>
+      <td class="change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.hour)}</span><span>Hoy ${deltaText(ch.today)}</span></td>
+      <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
+    </tr>`;
+  }).join("");
 }
 function mobileCards(rows,leader,showLevel){
-  return rows.map((g,i)=>`<article class="mobile-card">
-    <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span></div>
-    <div class="mobile-main">
-      <div class="mobile-name">${esc(g.name)}</div>
-      <div class="mobile-meta">
-        ${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}
-        <span class="mobile-votes">${n(g.votes)} votos</span>
-        <span class="mobile-diff">${i===0?"Líder":"−"+n(leader-(Number(g.votes)||0))+" del líder"}</span>
+  return rows.map((g,i)=>{
+    const ch=groupChanges(g.name,Number(g.votes)||0);
+    return `<article class="mobile-card">
+      <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span></div>
+      <div class="mobile-main">
+        <div class="mobile-name">${esc(g.name)}</div>
+        <div class="mobile-meta">
+          ${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}
+          <span class="mobile-votes">${n(g.votes)} votos</span>
+          <span class="mobile-diff">${i===0?"Líder":"−"+n(leader-(Number(g.votes)||0))+" del líder"}</span>
+        </div>
+        <div class="mobile-change"><span>Últ. ${deltaText(ch.last)}</span><span>1h ${deltaText(ch.hour)}</span><span>Hoy ${deltaText(ch.today)}</span></div>
       </div>
-    </div>
-  </article>`).join("");
+    </article>`;
+  }).join("");
 }
 function rankingSection(title,dataLevel,rows,showLevel=false){
   const leader=rows[0]?.votes||0;
@@ -110,7 +176,7 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
     </div>
     <div class="desktop-table">
       <table>
-        <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th style="text-align:right">Dif. líder</th></tr></thead>
+        <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th>Cambio</th><th style="text-align:right">Dif. líder</th></tr></thead>
         <tbody>${desktopRows(rows,leader,showLevel)}</tbody>
       </table>
     </div>
@@ -161,9 +227,19 @@ function updateStatus(data){
 }
 async function load(){
   try{
-    const res=await fetch(`${FALLBACK_DATA}?t=${Date.now()}`,{cache:"no-store"});
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    render(await res.json());
+    const stamp=Date.now();
+    const [dataRes,historyRes]=await Promise.all([
+      fetch(`${FALLBACK_DATA}?t=${stamp}`,{cache:"no-store"}),
+      fetch(`${HISTORY_DATA}?t=${stamp}`,{cache:"no-store"}).catch(()=>null)
+    ]);
+    if(!dataRes.ok)throw new Error(`HTTP ${dataRes.status}`);
+    if(historyRes?.ok){
+      const history=await historyRes.json();
+      historySnapshots=Array.isArray(history?.snapshots)
+        ? history.snapshots.filter(s=>s?.at&&s?.votes).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))
+        : [];
+    }
+    render(await dataRes.json());
   }catch(err){
     dot.className="dot error";
     statusEl.textContent="Sin conexión a datos";
