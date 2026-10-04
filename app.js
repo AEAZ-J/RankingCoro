@@ -163,7 +163,8 @@ function render(data){
   const groups=Array.isArray(data.groups)?data.groups:[];
   currentGroups=groups;
   const levels=[...new Set(groups.map(g=>g.level).filter(Boolean))].sort(levelSort);
-  const historyMark=historySnapshots.at(-1)?.at||"";\n  const signature=JSON.stringify([groups.map(g=>[g.name,g.level,g.votes]),historyMark,historySnapshots.length]);
+  const historyMark=historySnapshots.at(-1)?.at||"";
+  const signature=JSON.stringify([groups.map(g=>[g.name,g.level,g.votes]),historyMark,historySnapshots.length]);
   if(signature===lastSignature&&rankings.children.length){
     updateStatus(data);
     updateCategoryTotal();
