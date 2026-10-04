@@ -6,6 +6,7 @@ const REFRESH_MS = 15000;
 const rankings = document.querySelector("#rankings");
 const tabs = document.querySelector("#tabs");
 const statusEl = document.querySelector("#status");
+const updatedEl = document.querySelector("#updated");
 const dot = document.querySelector("#dot");
 const warning = document.querySelector("#warning");
 const themeToggle = document.querySelector("#themeToggle");
@@ -191,6 +192,10 @@ function render(data){
   updateStatus(data);
 }
 function updateStatus(data){
+  const dt=data.updatedAt?new Date(data.updatedAt):null;
+  updatedEl.textContent=dt&&!Number.isNaN(dt.valueOf())
+    ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)
+    : "Hora no disponible";
   dot.className="dot "+(data.stale?"stale":"live");
   statusEl.textContent=data.stale?"Último dato disponible":"Datos actualizados";
   warning.classList.toggle("hidden",!data.stale);
