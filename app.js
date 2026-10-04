@@ -13,9 +13,12 @@ const themeToggle = document.querySelector("#themeToggle");
 const themeIcon = document.querySelector("#themeIcon");
 const themeLabel = document.querySelector("#themeLabel");
 const themeMeta = document.querySelector('meta[name="theme-color"]');
+const categoryTotalLabel = document.querySelector("#categoryTotalLabel");
+const categoryVoteCount = document.querySelector("#categoryVoteCount");
 
-let selected = "General";
+let selected = "Intermedio";
 let lastSignature = "";
+let currentGroups = [];
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -24,6 +27,7 @@ function applyTheme(theme, persist=false){
   themeLabel.textContent = next === "dark" ? "Modo día" : "Modo noche";
   themeMeta?.setAttribute("content", next === "dark" ? "#0b1220" : "#f8fafc");
   themeToggle?.setAttribute("aria-pressed", String(next === "dark"));
+  themeToggle?.setAttribute("title", next === "dark" ? "Cambiar a modo día" : "Cambiar a modo noche");
   if(persist){
     try{ localStorage.setItem("ranking-theme", next); }catch{}
   }
@@ -51,18 +55,28 @@ function levelSort(a,b){
   if(ib===-1)return -1;
   return ia-ib;
 }
+function selectedGroups(){
+  return selected==="General" ? currentGroups : currentGroups.filter(g=>g.level===selected);
+}
+function updateCategoryTotal(){
+  const groups=selectedGroups();
+  const total=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+  categoryTotalLabel.textContent=selected==="General" ? "Todos los coros" : selected;
+  categoryVoteCount.textContent=`${n(total)} votos`;
+}
 function chooseLevel(label){
   selected=label;
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.level===selected));
   if(mobileSelect&&mobileSelect.value!==selected)mobileSelect.value=selected;
   document.querySelectorAll(".level").forEach(sec=>sec.classList.toggle("hidden-level",sec.dataset.level!==selected));
+  updateCategoryTotal();
 }
 function setFilters(levels){
   const labels=["General",...levels];
   tabs.innerHTML=labels.map(label=>`<button type="button" data-level="${esc(label)}" class="${selected===label?"active":""}">${esc(label)}</button>`).join("");
   tabs.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>chooseLevel(btn.dataset.level)));
   mobileSelect.innerHTML=labels.map(label=>`<option value="${esc(label)}">${esc(label)}</option>`).join("");
-  mobileSelect.value=labels.includes(selected)?selected:"General";
+  mobileSelect.value=labels.includes(selected)?selected:"Intermedio";
   mobileSelect.onchange=()=>chooseLevel(mobileSelect.value);
 }
 function desktopRows(rows,leader,showLevel){
@@ -104,10 +118,12 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
 }
 function render(data){
   const groups=Array.isArray(data.groups)?data.groups:[];
+  currentGroups=groups;
   const levels=[...new Set(groups.map(g=>g.level).filter(Boolean))].sort(levelSort);
   const signature=JSON.stringify(groups.map(g=>[g.name,g.level,g.votes]));
   if(signature===lastSignature&&rankings.children.length){
     updateStatus(data);
+    updateCategoryTotal();
     return;
   }
   lastSignature=signature;
@@ -115,7 +131,11 @@ function render(data){
   document.querySelector("#groupCount").textContent=n(groups.length);
   document.querySelector("#voteCount").textContent=n(groups.reduce((s,g)=>s+(Number(g.votes)||0),0));
   document.querySelector("#levelCount").textContent=n(levels.length);
-  if(!["General",...levels].includes(selected))selected="General";
+
+  const labels=["General",...levels];
+  if(!labels.includes(selected)){
+    selected=levels.includes("Intermedio")?"Intermedio":"General";
+  }
   setFilters(levels);
 
   const generalRows=[...groups].sort((a,b)=>(b.votes||0)-(a.votes||0));
@@ -125,6 +145,7 @@ function render(data){
     sections.push(rankingSection(level,level,rows,false));
   }
   rankings.innerHTML=sections.join("");
+  updateCategoryTotal();
   updateStatus(data);
 }
 function updateStatus(data){
