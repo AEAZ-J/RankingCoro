@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 const API="https://app.juntossuenamejor.cl/api/voting/choirs?round_code=first";
 const DATA="data.json";
 const HISTORY="history.json";
-const LIVE_HISTORY="https://aeaz-j.github.io/RankingCoro/history.json";
+const LIVE_HISTORY="https://aeaz-j.github.io/RankingCoro/history.json";\nconst LIVE_DATA="https://aeaz-j.github.io/RankingCoro/data.json";
 const MAX_AGE_MS=30*24*60*60*1000;
 
 const categoryMap={
@@ -14,6 +14,14 @@ const categoryMap={
 
 let previous={groups:[]};
 try{ previous=JSON.parse(await readFile(DATA,"utf8")); }catch{}
+
+async function loadPublishedData(){
+  const res=await fetch(`${LIVE_DATA}?t=${Date.now()}`,{headers:{accept:"application/json"}});
+  if(!res.ok) throw new Error(`data HTTP ${res.status}`);
+  const json=await res.json();
+  if(!Array.isArray(json?.groups) || json.groups.length<10) throw new Error("data publicado inválido");
+  return json;
+}
 
 async function loadPublishedHistory(){
   try{
@@ -90,8 +98,10 @@ try{
   console.log(`OK: ${groups.length} coros cargados desde API; ${snapshots.length} mediciones históricas`);
 }catch(err){
   console.error(err);
+  let fallback=previous;
+  try{ fallback=await loadPublishedData(); }catch{}
   await writeFile(DATA,JSON.stringify({
-    ...previous,
+    ...fallback,
     source:API,
     lastAttemptAt:new Date().toISOString(),
     stale:true,
