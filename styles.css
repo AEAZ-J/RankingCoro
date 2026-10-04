@@ -97,7 +97,8 @@ h1{margin:0;font-size:clamp(2rem,6vw,3.5rem);line-height:1}
 .theme-toggle:hover,.theme-toggle:focus-visible{opacity:1}
 .statusbox{display:flex;align-items:center;gap:10px;border-radius:14px;padding:12px 14px;margin-top:48px}
 .status-text{min-width:0}
-.statusbox strong{display:block}
+.statusbox strong,.statusbox small{display:block}
+.statusbox small{color:var(--muted);margin-top:2px;font-size:.75rem}
 .dot{width:12px;height:12px;border-radius:50%;background:#94a3b8;flex:0 0 auto}
 .dot.live{background:#16a34a}
 .dot.stale{background:#d97706}
