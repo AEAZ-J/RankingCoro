@@ -35,9 +35,20 @@ jobs:
           echo "API_HTTP_STATUS=$code"
           echo "CORS headers:"
           grep -i "^access-control-" /tmp/api.headers || true
-          echo "Response sample:"
-          head -c 1000 /tmp/api.json || true
-          echo
+          echo "Response structure:"
+          python - <<'PY'
+          import json
+          with open('/tmp/api.json', encoding='utf-8') as f:
+              data=json.load(f)
+          choirs=data.get('choirs', [])
+          print("CHOIR_COUNT=", len(choirs))
+          if choirs:
+              first=choirs[0]
+              print("CHOIR_KEYS=", sorted(first.keys()))
+              print("VOTE_FIELDS=", {k:v for k,v in first.items() if 'vote' in k.lower()})
+              print("CATEGORY_SAMPLE=", first.get('competition_category'))
+              print("CATEGORIES=", sorted({str(c.get('competition_category')) for c in choirs}))
+          PY
 
       - name: Preparar Node
         uses: actions/setup-node@v4
