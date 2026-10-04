@@ -110,19 +110,42 @@ h1{margin:0;font-size:clamp(2rem,6vw,3.5rem);line-height:1}
 .summary span{display:block;font-size:1.55rem;font-weight:800}
 .summary small{color:var(--muted)}
 .window-picker{
+  border-radius:14px;
+  margin:0 0 12px;
+  overflow:hidden;
+}
+.window-picker-summary{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  border-radius:14px;
   padding:11px 13px;
-  margin:0 0 12px;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
 }
+.window-picker-summary::-webkit-details-marker{display:none}
 .window-picker-copy{min-width:150px}
 .window-picker-copy strong,.window-picker-copy small{display:block}
 .window-picker-copy strong{font-size:.88rem}
 .window-picker-copy small{color:var(--muted);font-size:.7rem;margin-top:2px}
-.window-picker-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex:1}
+.window-picker-chevron{
+  color:var(--muted);
+  font-size:1rem;
+  line-height:1;
+  transition:transform .18s ease;
+}
+.window-picker[open] .window-picker-chevron{transform:rotate(180deg)}
+.window-picker-controls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  min-width:0;
+  padding:0 13px 12px;
+  border-top:1px solid var(--border-soft);
+  padding-top:10px;
+}
 .window-chips{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
 .window-chip{
   border:1px solid var(--border);
@@ -248,10 +271,17 @@ a{color:inherit}
   .summary>div{padding:10px 6px;text-align:center;min-width:0}
   .summary span{font-size:1.15rem}
   .summary small{display:block;font-size:.7rem;line-height:1.1;margin-top:2px}
-  .window-picker{display:block;padding:9px 10px;margin-bottom:10px}
-  .window-picker-copy{min-width:0;margin-bottom:7px}
+  .window-picker{margin-bottom:10px}
+  .window-picker-summary{padding:9px 10px}
+  .window-picker-copy{min-width:0}
   .window-picker-copy strong{font-size:.8rem}
-  .window-picker-controls{display:flex;align-items:flex-start;justify-content:space-between;gap:7px}
+  .window-picker-controls{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:7px;
+    padding:8px 10px 10px
+  }
   .window-chips{justify-content:flex-start;flex:1}
   .window-chip{font-size:.68rem;padding:5px 7px}
   .window-picker select{max-width:132px;font-size:.7rem;flex:0 0 auto}
