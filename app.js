@@ -18,6 +18,11 @@ const categoryVoteCount = document.querySelector("#categoryVoteCount");
 const categoryChange = document.querySelector("#categoryChange");
 const windowChips = document.querySelector("#windowChips");
 const windowSelect = document.querySelector("#windowSelect");
+const chartType = document.querySelector("#chartType");
+const chartPeriod = document.querySelector("#chartPeriod");
+const chartChoirs = document.querySelector("#chartChoirs");
+const chartCanvas = document.querySelector("#chartCanvas");
+const chartEmpty = document.querySelector("#chartEmpty");
 
 let selected = "Intermedio";
 let lastSignature = "";
@@ -27,6 +32,8 @@ let latestData = null;
 const DEFAULT_EXTRA_WINDOWS = [6,12,24];
 const OPTIONAL_WINDOWS = [0.5,...Array.from({length:23},(_,i)=>i+2)];
 let extraWindows = loadExtraWindows();
+let chartSelectedNames = new Set();
+let chartSelectionLevel = "";
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -116,6 +123,162 @@ function initWindowPicker(){
     extraWindows=extraWindows.filter(v=>v!==hours);
     saveExtraWindows();
     refreshForWindowChange();
+  });
+}
+
+function chartGroups(){
+  return selected==="General" ? [...currentGroups] : currentGroups.filter(g=>g.level===selected);
+}
+function ensureChartSelection(){
+  const groups=chartGroups().sort((x,y)=>(y.votes||0)-(x.votes||0));
+  if(chartSelectionLevel!==selected){
+    chartSelectionLevel=selected;
+    chartSelectedNames=new Set(groups.slice(0,3).map(g=>g.name));
+  }else{
+    const valid=new Set(groups.map(g=>g.name));
+    chartSelectedNames=new Set([...chartSelectedNames].filter(name=>valid.has(name)));
+    if(!chartSelectedNames.size){
+      chartSelectedNames=new Set(groups.slice(0,3).map(g=>g.name));
+    }
+  }
+}
+function renderChartChoirs(){
+  if(!chartChoirs)return;
+  ensureChartSelection();
+  const groups=chartGroups().sort((x,y)=>(y.votes||0)-(x.votes||0));
+  chartChoirs.innerHTML=groups.map(g=>`
+    <label class="chart-choir-option">
+      <input type="checkbox" value="${esc(g.name)}" ${chartSelectedNames.has(g.name)?"checked":""}>
+      <span>${esc(g.name)}</span>
+    </label>`).join("");
+}
+function chartSnapshots(){
+  if(!historySnapshots.length)return [];
+  const latestMs=Date.parse(historySnapshots.at(-1)?.at);
+  if(!Number.isFinite(latestMs))return [];
+  const value=chartPeriod?.value||"6";
+  if(value==="all")return historySnapshots;
+  const hours=Number(value);
+  const cutoff=latestMs-hours*60*60*1000;
+  return historySnapshots.filter(s=>Date.parse(s.at)>=cutoff);
+}
+function chartRankMap(groups,snapshot){
+  if(!snapshot?.votes)return null;
+  const ranked=groups.map((g,i)=>({name:g.name,votes:Number(snapshot.votes[g.name]),base:i}));
+  if(ranked.some(g=>!Number.isFinite(g.votes)))return null;
+  ranked.sort((x,y)=>(y.votes-x.votes)||(x.base-y.base));
+  return new Map(ranked.map((g,i)=>[g.name,i+1]));
+}
+function chartSeries(){
+  const groups=chartGroups();
+  const selectedGroupsForChart=groups.filter(g=>chartSelectedNames.has(g.name));
+  const snaps=chartSnapshots();
+  if(snaps.length<2||!selectedGroupsForChart.length)return [];
+  const type=chartType?.value||"votes";
+  return selectedGroupsForChart.map(g=>({
+    name:g.name,
+    points:snaps.map(s=>{
+      const t=Date.parse(s.at);
+      if(type==="rank"){
+        const ranks=chartRankMap(groups,s);
+        return {t,y:ranks?.get(g.name)??null};
+      }
+      const votes=Number(s.votes?.[g.name]);
+      if(!Number.isFinite(votes))return {t,y:null};
+      if(type==="gap"){
+        const leader=Math.max(...groups.map(x=>Number(s.votes?.[x.name])).filter(Number.isFinite));
+        return {t,y:Number.isFinite(leader)?votes-leader:null};
+      }
+      return {t,y:votes};
+    }).filter(p=>Number.isFinite(p.t)&&Number.isFinite(p.y))
+  })).filter(s=>s.points.length>=2);
+}
+function chartTimeLabel(ms){
+  return new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",timeZone:"America/Santiago"}).format(new Date(ms));
+}
+function renderChart(){
+  if(!chartCanvas||!chartEmpty)return;
+  ensureChartSelection();
+  renderChartChoirs();
+  const series=chartSeries();
+  if(!series.length){
+    chartCanvas.innerHTML="";
+    chartEmpty.hidden=false;
+    chartEmpty.textContent="Aún no hay suficiente historial para este gráfico.";
+    return;
+  }
+  chartEmpty.hidden=true;
+
+  const width=900,height=330;
+  const pad={l:58,r:18,t:24,b:42};
+  const allPoints=series.flatMap(s=>s.points);
+  const minT=Math.min(...allPoints.map(p=>p.t));
+  const maxT=Math.max(...allPoints.map(p=>p.t));
+  let minY=Math.min(...allPoints.map(p=>p.y));
+  let maxY=Math.max(...allPoints.map(p=>p.y));
+  const type=chartType?.value||"votes";
+  if(type==="rank"){
+    minY=1;
+    maxY=Math.max(2,...allPoints.map(p=>p.y));
+  }else if(minY===maxY){
+    minY-=1;maxY+=1;
+  }
+  const x=t=>pad.l+(t-minT)/Math.max(1,maxT-minT)*(width-pad.l-pad.r);
+  const y=v=>{
+    const ratio=(v-minY)/Math.max(1,maxY-minY);
+    return type==="rank"
+      ? pad.t+ratio*(height-pad.t-pad.b)
+      : height-pad.b-ratio*(height-pad.t-pad.b);
+  };
+  const palette=["#2563eb","#16a34a","#d97706","#9333ea"];
+  const ticks=4;
+  const yTicks=Array.from({length:ticks+1},(_,i)=>{
+    const ratio=i/ticks;
+    const value=type==="rank"
+      ? Math.round(minY+ratio*(maxY-minY))
+      : minY+ratio*(maxY-minY);
+    const yy=y(value);
+    const label=type==="rank" ? `#${value}` : n(Math.round(value));
+    return `<line x1="${pad.l}" y1="${yy}" x2="${width-pad.r}" y2="${yy}" class="chart-grid"/>
+      <text x="${pad.l-8}" y="${yy+4}" text-anchor="end" class="chart-axis-label">${label}</text>`;
+  }).join("");
+  const xTicks=[0,.25,.5,.75,1].map(r=>{
+    const tt=minT+r*(maxT-minT);
+    const xx=x(tt);
+    return `<text x="${xx}" y="${height-14}" text-anchor="middle" class="chart-axis-label">${chartTimeLabel(tt)}</text>`;
+  }).join("");
+  const lines=series.map((s,i)=>{
+    const points=s.points.map(p=>`${x(p.t).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+    const last=s.points.at(-1);
+    return `<polyline points="${points}" fill="none" stroke="${palette[i%palette.length]}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(last.t)}" cy="${y(last.y)}" r="4" fill="${palette[i%palette.length]}"/>`;
+  }).join("");
+  const legend=series.map((s,i)=>`
+    <span class="chart-legend-item"><i style="background:${palette[i%palette.length]}"></i>${esc(s.name)}</span>`).join("");
+  chartCanvas.innerHTML=`
+    <div class="chart-legend">${legend}</div>
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfico histórico">
+      ${yTicks}
+      ${xTicks}
+      ${lines}
+    </svg>`;
+}
+function initCharts(){
+  chartType?.addEventListener("change",renderChart);
+  chartPeriod?.addEventListener("change",renderChart);
+  chartChoirs?.addEventListener("change",event=>{
+    const input=event.target.closest('input[type="checkbox"]');
+    if(!input)return;
+    if(input.checked){
+      if(chartSelectedNames.size>=4){
+        input.checked=false;
+        return;
+      }
+      chartSelectedNames.add(input.value);
+    }else{
+      chartSelectedNames.delete(input.value);
+    }
+    renderChart();
   });
 }
 
@@ -249,6 +412,7 @@ function chooseLevel(label){
     sec.classList.toggle("hidden-level",hide);
   });
   updateCategoryTotal();
+  renderChart();
 }
 function setFilters(levels){
   const labels=["General",...levels];
@@ -335,6 +499,7 @@ function render(data){
   }
   rankings.innerHTML=sections.join("");
   updateCategoryTotal();
+  renderChart();
   updateStatus(data);
 }
 function updateStatus(data){
@@ -383,5 +548,6 @@ async function load(){
 
 initTheme();
 initWindowPicker();
+initCharts();
 load();
 setInterval(load,REFRESH_MS);
