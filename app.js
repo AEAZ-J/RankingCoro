@@ -653,3 +653,9 @@ initWindowPicker();
 initCharts();
 load();
 setInterval(load,REFRESH_MS);
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible")load();
+});
+window.addEventListener("pageshow",()=>load());
+window.addEventListener("focus",()=>load());
