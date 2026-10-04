@@ -236,6 +236,23 @@ function chartSeries(){
   const snaps=chartSnapshots();
   if(snaps.length<2||!selectedGroupsForChart.length)return [];
   const type=chartType?.value||"votes";
+
+  if(type==="new"){
+    return selectedGroupsForChart.map(g=>({
+      name:g.name,
+      points:snaps.slice(1).map((s,i)=>{
+        const previous=snaps[i];
+        const t=Date.parse(s.at);
+        const before=Number(previous.votes?.[g.name]);
+        const after=Number(s.votes?.[g.name]);
+        return {
+          t,
+          y:Number.isFinite(before)&&Number.isFinite(after)?after-before:null
+        };
+      }).filter(p=>Number.isFinite(p.t)&&Number.isFinite(p.y))
+    })).filter(s=>s.points.length>=1);
+  }
+
   return selectedGroupsForChart.map(g=>({
     name:g.name,
     points:snaps.map(s=>{
@@ -296,6 +313,10 @@ function renderChart(){
   if(type==="rank"){
     minY=1;
     maxY=Math.max(2,...allPoints.map(p=>p.y));
+  }else if(type==="new"){
+    minY=Math.min(0,minY);
+    maxY=Math.max(1,maxY);
+    if(minY===maxY)maxY=minY+1;
   }else if(minY===maxY){
     minY-=1;maxY+=1;
   }
