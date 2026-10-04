@@ -11,6 +11,11 @@
 <body>
   <main class="wrap">
     <header class="hero">
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Cambiar entre modo día y noche" title="Cambiar modo">
+        <span id="themeIcon" aria-hidden="true">🌙</span>
+        <span id="themeLabel" class="sr-only">Modo noche</span>
+      </button>
+
       <div class="hero-copy">
         <p class="eyebrow">Juntos Suena Mejor</p>
         <h1>Ranking por votos</h1>
@@ -18,11 +23,6 @@
       </div>
 
       <div class="hero-actions">
-        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Cambiar entre modo día y noche">
-          <span id="themeIcon" aria-hidden="true">🌙</span>
-          <span id="themeLabel">Modo noche</span>
-        </button>
-
         <div class="statusbox">
           <span id="dot" class="dot"></span>
           <div class="status-text">
@@ -47,6 +47,12 @@
     </div>
 
     <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
+
+    <section class="category-total" aria-live="polite">
+      <span id="categoryTotalLabel">Intermedio</span>
+      <strong id="categoryVoteCount">— votos</strong>
+    </section>
+
     <section id="rankings" class="rankings" aria-live="polite"></section>
 
     <footer>
