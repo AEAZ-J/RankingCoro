@@ -1,23 +1,29 @@
 # Ranking de coros — GitHub Pages
 
-Ranking de la votación pública de **Juntos Suena Mejor**, separado por nivel:
+Ranking de la votación pública de **Juntos Suena Mejor**, con vista general y por nivel.
 
-- Inicial
-- Intermedio
-- Avanzado
-- Coro participante
+## Cómo funciona
 
-## Publicación
+- La fuente es la API pública de la primera ronda:
+  `https://app.juntossuenamejor.cl/api/voting/choirs?round_code=first`
+- GitHub Actions consulta la API y publica el sitio en GitHub Pages.
+- El workflow intenta actualizar aproximadamente cada 5 minutos. GitHub puede retrasar las ejecuciones programadas.
+- La página consulta `data.json` y `history.json` cada 15 segundos para detectar una publicación nueva.
+- `history.json` conserva hasta 30 días de mediciones y permite calcular votos sumados en 1h, 6h, 12h y 24h.
+- Si la API falla, se intenta conservar el último dato válido ya publicado.
 
-El workflow `Actualizar ranking` intenta leer la votación pública y publicar el sitio con GitHub Pages aproximadamente cada 5 minutos.
-
-La dirección esperada para este repositorio es:
+## Sitio
 
 https://aeaz-j.github.io/RankingCoro/
 
-## Importante
+## Archivos públicos
 
-- El scraper no vota ni inicia sesión: solo lee la página pública.
-- GitHub Actions puede retrasar ejecuciones programadas cuando hay alta carga.
-- La web consulta el archivo publicado cada 15 segundos y muestra una nueva lectura apenas esté disponible.
-- Si cambia el diseño del sitio de votación, el scraper puede necesitar ajustes.
+GitHub Pages publica únicamente:
+
+- `index.html`
+- `styles.css`
+- `app.js`
+- `data.json`
+- `history.json`
+
+El sitio no vota, no inicia sesión y no requiere servicios de pago.
