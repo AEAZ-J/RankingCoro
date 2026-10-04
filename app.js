@@ -178,6 +178,57 @@ function changeParts(ch){
 function changeSpans(ch){
   return changeParts(ch).map(part=>`<span>${part}</span>`).join("");
 }
+function rankMapAt(rows,snapshot){
+  if(!snapshot?.votes)return null;
+  const baseOrder=new Map(currentGroups.map((g,i)=>[g.name,i]));
+  const ranked=rows.map(g=>({
+    name:g.name,
+    votes:Number(snapshot.votes[g.name]),
+    base:baseOrder.get(g.name)??9999
+  }));
+  if(ranked.some(g=>!Number.isFinite(g.votes)))return null;
+  ranked.sort((x,y)=>(y.votes-x.votes)||(x.base-y.base));
+  return new Map(ranked.map((g,i)=>[g.name,i+1]));
+}
+function latestRankMoves(rows){
+  const moves=new Map();
+  if(rows.length<2||historySnapshots.length<2)return moves;
+  let currentRanks=rankMapAt(rows,historySnapshots.at(-1));
+  if(!currentRanks)return moves;
+
+  for(let i=historySnapshots.length-1;i>=1&&moves.size<rows.length;i--){
+    const previousRanks=rankMapAt(rows,historySnapshots[i-1]);
+    if(!previousRanks)continue;
+    for(const g of rows){
+      if(moves.has(g.name))continue;
+      const now=currentRanks.get(g.name);
+      const before=previousRanks.get(g.name);
+      if(Number.isFinite(now)&&Number.isFinite(before)&&now!==before){
+        moves.set(g.name,{delta:before-now,at:historySnapshots[i].at});
+      }
+    }
+    currentRanks=previousRanks;
+  }
+  return moves;
+}
+function movementTime(at){
+  const dt=new Date(at);
+  if(Number.isNaN(dt.valueOf()))return "";
+  return new Intl.DateTimeFormat("es-CL",{
+    hour:"2-digit",
+    minute:"2-digit",
+    timeZone:"America/Santiago"
+  }).format(dt);
+}
+function movementBadge(move){
+  if(!move||!Number.isFinite(move.delta)||move.delta===0)return "";
+  const up=move.delta>0;
+  const places=Math.abs(move.delta);
+  const time=movementTime(move.at);
+  const verb=up?"Subió":"Bajó";
+  const placeText=places===1?"puesto":"puestos";
+  return `<span class="rank-move ${up?"up":"down"}" title="${verb} ${places} ${placeText}; detectado a las ${esc(time)}">${up?"↑":"↓"}${places} · ${esc(time)}</span>`;
+}
 function selectedGroups(){
   return selected==="General" ? currentGroups : currentGroups.filter(g=>g.level===selected);
 }
@@ -204,11 +255,11 @@ function setFilters(levels){
   tabs.innerHTML=labels.map(label=>`<button type="button" data-level="${esc(label)}" class="${selected===label?"active":""}">${esc(label)}</button>`).join("");
   tabs.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>chooseLevel(btn.dataset.level)));
 }
-function desktopRows(rows,leader,showLevel){
+function desktopRows(rows,leader,showLevel,moves){
   return rows.map((g,i)=>{
     const ch=groupChanges(g.name,Number(g.votes)||0);
     return `<tr>
-      <td class="pos"><span class="medal">${medal(i)}</span>${i+1}</td>
+      <td class="pos"><div class="pos-main"><span class="medal">${medal(i)}</span>${i+1}</div>${movementBadge(moves.get(g.name))}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
       <td class="change">${changeSpans(ch)}</td>
@@ -216,11 +267,11 @@ function desktopRows(rows,leader,showLevel){
     </tr>`;
   }).join("");
 }
-function mobileCards(rows,leader,showLevel){
+function mobileCards(rows,leader,showLevel,moves){
   return rows.map((g,i)=>{
     const ch=groupChanges(g.name,Number(g.votes)||0);
     return `<article class="mobile-card">
-      <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span></div>
+      <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span>${movementBadge(moves.get(g.name))}</div>
       <div class="mobile-main">
         <div class="mobile-name">${esc(g.name)}</div>
         <div class="mobile-meta">
@@ -236,6 +287,7 @@ function mobileCards(rows,leader,showLevel){
 function rankingSection(title,dataLevel,rows,showLevel=false){
   const leader=rows[0]?.votes||0;
   const total=rows.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
+  const moves=latestRankMoves(rows);
   const isHidden=selected!==dataLevel;
   return `<section class="level ${isHidden?"hidden-level":""}" data-level="${esc(dataLevel)}" ${isHidden?"hidden":""}>
     <div class="level-head">
@@ -245,10 +297,10 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
     <div class="desktop-table">
       <table>
         <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th>Cambio</th><th style="text-align:right">Dif. líder</th></tr></thead>
-        <tbody>${desktopRows(rows,leader,showLevel)}</tbody>
+        <tbody>${desktopRows(rows,leader,showLevel,moves)}</tbody>
       </table>
     </div>
-    <div class="mobile-list">${mobileCards(rows,leader,showLevel)}</div>
+    <div class="mobile-list">${mobileCards(rows,leader,showLevel,moves)}</div>
   </section>`;
 }
 function render(data){
