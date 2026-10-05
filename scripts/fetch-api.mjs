@@ -7,6 +7,27 @@ const LIVE_HISTORY="https://aeaz-j.github.io/RankingCoro/history.json";
 const LIVE_DATA="https://aeaz-j.github.io/RankingCoro/data.json";
 const MAX_AGE_MS=30*24*60*60*1000;
 
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+async function fetchJson(url,label,attempts=3,timeoutMs=15000){
+  let lastError=null;
+  for(let attempt=1;attempt<=attempts;attempt++){
+    try{
+      const res=await fetch(url,{
+        headers:{accept:"application/json"},
+        signal:AbortSignal.timeout(timeoutMs)
+      });
+      if(!res.ok)throw new Error(`${label} HTTP ${res.status}`);
+      return await res.json();
+    }catch(err){
+      lastError=err;
+      console.warn(`${label}: intento ${attempt}/${attempts} falló: ${err?.message||err}`);
+      if(attempt<attempts)await sleep(1500*attempt);
+    }
+  }
+  throw lastError || new Error(`${label}: error desconocido`);
+}
+
 const categoryMap={
   basic:"Inicial",
   intermediate:"Intermedio",
@@ -17,18 +38,14 @@ let previous={groups:[]};
 try{ previous=JSON.parse(await readFile(DATA,"utf8")); }catch{}
 
 async function loadPublishedData(){
-  const res=await fetch(`${LIVE_DATA}?t=${Date.now()}`,{headers:{accept:"application/json"}});
-  if(!res.ok) throw new Error(`data HTTP ${res.status}`);
-  const json=await res.json();
+  const json=await fetchJson(`${LIVE_DATA}?t=${Date.now()}`,"data publicado",2,12000);
   if(!Array.isArray(json?.groups) || json.groups.length<10) throw new Error("data publicado inválido");
   return json;
 }
 
 async function loadPublishedHistory(){
   try{
-    const res=await fetch(`${LIVE_HISTORY}?t=${Date.now()}`,{headers:{accept:"application/json"}});
-    if(!res.ok) throw new Error(`history HTTP ${res.status}`);
-    const json=await res.json();
+    const json=await fetchJson(`${LIVE_HISTORY}?t=${Date.now()}`,"history publicado",2,12000);
     return Array.isArray(json?.snapshots)?json.snapshots:[];
   }catch{
     try{
@@ -41,10 +58,7 @@ async function loadPublishedHistory(){
 }
 
 try{
-  const res=await fetch(API,{headers:{accept:"application/json"}});
-  if(!res.ok) throw new Error(`API HTTP ${res.status}`);
-
-  const payload=await res.json();
+  const payload=await fetchJson(API,"API de votación",3,15000);
   if(!payload?.ok || !Array.isArray(payload.choirs)){
     throw new Error("Formato inesperado de la API");
   }
