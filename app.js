@@ -531,7 +531,7 @@ function desktopRows(rows,leader,showLevel,moves){
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
       <td class="change">${changeSpans(ch)}</td>
-      <td class="diff">${i===0?"—":"−"+n(previousVotes-votes)}</td>
+      <td class="diff">${i<2?"—":"−"+n(previousVotes-votes)}</td>
       <td class="diff">${i===0?"—":"−"+n(leader-votes)}</td>
     </tr>`;
   }).join("");
@@ -548,8 +548,8 @@ function mobileCards(rows,leader,showLevel,moves){
         <div class="mobile-meta">
           ${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}
           <span class="mobile-votes">${n(g.votes)} votos</span>
-          <span class="mobile-diff">${i===0?"Líder":"−"+n(previousVotes-votes)+" del anterior"}</span>
-          ${i===0?"":`<span class="mobile-diff">−${n(leader-votes)} del líder</span>`}
+          <span class="mobile-diff">${i===0?"Líder":i===1?"−"+n(leader-votes)+" del líder":"−"+n(previousVotes-votes)+" del anterior"}</span>
+          ${i<2?"":`<span class="mobile-diff">−${n(leader-votes)} del líder</span>`}
         </div>
         <div class="mobile-change">${changeSpans(ch)}</div>
       </div>
