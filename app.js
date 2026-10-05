@@ -2,6 +2,7 @@ const LEVEL_ORDER = ["Inicial","Intermedio","Avanzado","Coro participante"];
 const FALLBACK_DATA = "data.json";
 const HISTORY_DATA = "history.json";
 const REFRESH_MS = 15000;
+const DELAY_WARNING_MS = 12 * 60 * 1000;
 
 const rankings = document.querySelector("#rankings");
 const tabs = document.querySelector("#tabs");
@@ -616,6 +617,10 @@ function updateStatus(data){
   const previous=historySnapshots.at(-2);
   const latestMs=latest?Date.parse(latest.at):NaN;
   const previousMs=previous?Date.parse(previous.at):NaN;
+  const dataMs=dt&&!Number.isNaN(dt.valueOf())?dt.getTime():NaN;
+  const ageMs=Number.isFinite(dataMs)?Math.max(0,Date.now()-dataMs):NaN;
+  const delayed=Number.isFinite(ageMs)&&ageMs>DELAY_WARNING_MS;
+  const stale=Boolean(data.stale)||delayed;
   let intervalText="";
   if(Number.isFinite(latestMs)&&Number.isFinite(previousMs)&&latestMs>=previousMs){
     const totalSeconds=Math.round((latestMs-previousMs)/1000);
@@ -626,10 +631,21 @@ function updateStatus(data){
   updatedEl.textContent=dt&&!Number.isNaN(dt.valueOf())
     ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)+intervalText
     : "Hora no disponible";
-  dot.className="dot "+(data.stale?"stale":"live");
-  statusEl.textContent=data.stale?"Último dato disponible":"Datos actualizados";
-  warning.classList.toggle("hidden",!data.stale);
-  warning.textContent=data.stale?"No se pudo actualizar la fuente; se muestran los últimos datos disponibles.":"";
+  dot.className="dot "+(stale?"stale":"live");
+  statusEl.textContent=data.stale
+    ?"Último dato disponible"
+    :delayed
+      ?"Actualización retrasada"
+      :"Datos actualizados";
+  warning.classList.toggle("hidden",!stale);
+  if(data.stale){
+    warning.textContent="No se pudo actualizar la fuente; se muestran los últimos datos disponibles.";
+  }else if(delayed){
+    const ageMinutes=Math.floor(ageMs/60000);
+    warning.textContent=`Los datos llevan ${ageMinutes} min sin actualizar. La página seguirá reintentando automáticamente.`;
+  }else{
+    warning.textContent="";
+  }
 }
 async function load(){
   try{
