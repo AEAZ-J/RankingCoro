@@ -1,0 +1,87 @@
+name: Watchdog ranking
+
+on:
+  workflow_run:
+    workflows:
+      - Actualizar ranking
+    types:
+      - completed
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: ranking-watchdog
+  cancel-in-progress: true
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Comprobar y recuperar cadena
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CUTOFF="2026-10-11T03:05:00Z"
+          CUTOFF_EPOCH=$(date -u -d "$CUTOFF" +%s)
+          NOW_EPOCH=$(date -u +%s)
+
+          if [ "$NOW_EPOCH" -ge "$CUTOFF_EPOCH" ]; then
+            echo "Votación finalizada: watchdog desactivado por fecha."
+            exit 0
+          fi
+
+          RUNS=$(curl --fail-with-body -sS -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/update-ranking.yml/runs?per_page=20")
+
+          ACTIVE=$(printf '%s' "$RUNS" | jq '[.workflow_runs[] | select(
+            .status == "queued" or
+            .status == "in_progress" or
+            .status == "waiting" or
+            .status == "pending" or
+            .status == "requested"
+          )] | length')
+
+          if [ "$ACTIVE" -gt 0 ]; then
+            echo "Cadena activa: $ACTIVE ejecución(es) en cola o en curso. No se hace nada."
+            exit 0
+          fi
+
+          echo "::warning::No hay ninguna ejecución activa de Actualizar ranking. Reactivando cadena."
+
+          SUCCESS=0
+          for WAIT in 0 5 15 30; do
+            if [ "$WAIT" -gt 0 ]; then
+              sleep "$WAIT"
+            fi
+
+            HTTP_CODE=$(curl -sS -o /tmp/dispatch-response.txt -w "%{http_code}" -L -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/update-ranking.yml/dispatches" \
+              -d '{"ref":"main"}' || true)
+
+            if [ "$HTTP_CODE" = "204" ]; then
+              echo "Cadena reactivada correctamente."
+              SUCCESS=1
+              break
+            fi
+
+            echo "Intento de recuperación falló (HTTP $HTTP_CODE)."
+            cat /tmp/dispatch-response.txt || true
+          done
+
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "::error::El watchdog no pudo reactivar la cadena."
+            exit 1
+          fi
