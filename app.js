@@ -524,18 +524,23 @@ function setFilters(levels){
 function desktopRows(rows,leader,showLevel,moves){
   return rows.map((g,i)=>{
     const ch=groupChanges(g.name,Number(g.votes)||0);
+    const votes=Number(g.votes)||0;
+    const previousVotes=i>0?(Number(rows[i-1]?.votes)||0):null;
     return `<tr>
       <td class="pos"><div class="pos-main"><span class="medal">${medal(i)}</span>${i+1}</div>${movementBadge(moves.get(g.name))}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
       <td class="change">${changeSpans(ch)}</td>
-      <td class="diff">${i===0?"—":"−"+n(leader-(Number(g.votes)||0))}</td>
+      <td class="diff">${i===0?"—":"−"+n(previousVotes-votes)}</td>
+      <td class="diff">${i===0?"—":"−"+n(leader-votes)}</td>
     </tr>`;
   }).join("");
 }
 function mobileCards(rows,leader,showLevel,moves){
   return rows.map((g,i)=>{
     const ch=groupChanges(g.name,Number(g.votes)||0);
+    const votes=Number(g.votes)||0;
+    const previousVotes=i>0?(Number(rows[i-1]?.votes)||0):null;
     return `<article class="mobile-card">
       <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span>${movementBadge(moves.get(g.name))}</div>
       <div class="mobile-main">
@@ -543,7 +548,8 @@ function mobileCards(rows,leader,showLevel,moves){
         <div class="mobile-meta">
           ${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}
           <span class="mobile-votes">${n(g.votes)} votos</span>
-          <span class="mobile-diff">${i===0?"Líder":"−"+n(leader-(Number(g.votes)||0))+" del líder"}</span>
+          <span class="mobile-diff">${i===0?"Líder":"−"+n(previousVotes-votes)+" del anterior"}</span>
+          ${i===0?"":`<span class="mobile-diff">−${n(leader-votes)} del líder</span>`}
         </div>
         <div class="mobile-change">${changeSpans(ch)}</div>
       </div>
@@ -562,7 +568,7 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
     </div>
     <div class="desktop-table">
       <table>
-        <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th>Cambio</th><th style="text-align:right">Dif. líder</th></tr></thead>
+        <thead><tr><th>#</th><th>Coro</th><th style="text-align:right">Votos</th><th>Cambio</th><th style="text-align:right">Dif. anterior</th><th style="text-align:right">Dif. líder</th></tr></thead>
         <tbody>${desktopRows(rows,leader,showLevel,moves)}</tbody>
       </table>
     </div>
