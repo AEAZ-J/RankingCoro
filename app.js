@@ -24,6 +24,7 @@ const chartPeriod = document.querySelector("#chartPeriod");
 const chartChoirs = document.querySelector("#chartChoirs");
 const chartCanvas = document.querySelector("#chartCanvas");
 const chartEmpty = document.querySelector("#chartEmpty");
+const dailyGainPanel = document.querySelector("#dailyGainPanel");
 
 let selected = "Intermedio";
 let lastSignature = "";
@@ -383,6 +384,150 @@ function initCharts(){
   });
 }
 
+
+function santiagoParts(ms){
+  const parts=new Intl.DateTimeFormat("en-CA",{
+    timeZone:"America/Santiago",
+    year:"numeric",
+    month:"2-digit",
+    day:"2-digit",
+    hour:"2-digit",
+    minute:"2-digit",
+    second:"2-digit",
+    hourCycle:"h23"
+  }).formatToParts(new Date(ms));
+  return Object.fromEntries(parts.filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
+}
+function santiagoLocalToUtcMs(year,month,day,hour,minute=0,second=0){
+  let guess=Date.UTC(year,month-1,day,hour,minute,second);
+  for(let i=0;i<3;i++){
+    const p=santiagoParts(guess);
+    const represented=Date.UTC(
+      Number(p.year),Number(p.month)-1,Number(p.day),
+      Number(p.hour),Number(p.minute),Number(p.second)
+    );
+    const wanted=Date.UTC(year,month-1,day,hour,minute,second);
+    guess+=wanted-represented;
+  }
+  return guess;
+}
+function yesterdayAt17Ms(referenceMs){
+  const p=santiagoParts(referenceMs);
+  const noonUtc=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day),12,0,0);
+  const previous=new Date(noonUtc-24*60*60*1000);
+  return santiagoLocalToUtcMs(
+    previous.getUTCFullYear(),
+    previous.getUTCMonth()+1,
+    previous.getUTCDate(),
+    17,0,0
+  );
+}
+function snapshotsAround(targetMs){
+  let before=null,after=null;
+  for(const snap of historySnapshots){
+    const t=Date.parse(snap.at);
+    if(!Number.isFinite(t))continue;
+    if(t<=targetMs)before=snap;
+    if(t>=targetMs){after=snap;break;}
+  }
+  return {before,after};
+}
+function interpolatedVoteAt(name,targetMs,before,after){
+  if(!before||!after)return null;
+  const t0=Date.parse(before.at);
+  const t1=Date.parse(after.at);
+  const v0=Number(before.votes?.[name]);
+  const v1=Number(after.votes?.[name]);
+  if(!Number.isFinite(t0)||!Number.isFinite(t1)||!Number.isFinite(v0)||!Number.isFinite(v1))return null;
+  if(t1===t0)return v0;
+  const f=Math.max(0,Math.min(1,(targetMs-t0)/(t1-t0)));
+  return v0+(v1-v0)*f;
+}
+function dailyGainDateLabel(ms){
+  return new Intl.DateTimeFormat("es-CL",{
+    timeZone:"America/Santiago",
+    day:"2-digit",
+    month:"short",
+    hour:"2-digit",
+    minute:"2-digit"
+  }).format(new Date(ms));
+}
+function dailyGainRows(){
+  if(historySnapshots.length<2)return {rows:[],omitted:0,targetMs:null,before:null,after:null};
+  const latest=historySnapshots.at(-1);
+  const latestMs=Date.parse(latest?.at);
+  if(!Number.isFinite(latestMs))return {rows:[],omitted:0,targetMs:null,before:null,after:null};
+  const targetMs=yesterdayAt17Ms(latestMs);
+  const {before,after}=snapshotsAround(targetMs);
+  if(!before||!after)return {rows:[],omitted:0,targetMs,before,after};
+
+  let omitted=0;
+  const rows=selectedGroups().map(g=>{
+    const end=Number(latest.votes?.[g.name]);
+    const start=interpolatedVoteAt(g.name,targetMs,before,after);
+    if(!Number.isFinite(start)||!Number.isFinite(end)){
+      omitted++;
+      return null;
+    }
+    return {name:g.name,gain:end-start};
+  }).filter(Boolean).sort((x,y)=>(y.gain-x.gain)||x.name.localeCompare(y.name,"es"));
+
+  return {rows,omitted,targetMs,before,after};
+}
+function renderDailyGain(){
+  if(!dailyGainPanel)return;
+  const {rows,omitted,targetMs,before,after}=dailyGainRows();
+  const title=selected==="General"?"Todos los coros":selected;
+
+  if(!rows.length){
+    dailyGainPanel.innerHTML=`
+      <div class="daily-gain-head">
+        <div>
+          <h2>Votos sumados desde ayer a las 17:00</h2>
+          <p>${esc(title)}</p>
+        </div>
+      </div>
+      <div class="daily-gain-empty">Aún no hay suficiente historial comparable para calcular este gráfico.</div>`;
+    return;
+  }
+
+  const maxGain=Math.max(1,...rows.map(r=>Math.max(0,r.gain)));
+  const beforeMs=Date.parse(before?.at);
+  const afterMs=Date.parse(after?.at);
+  const interpolated=Number.isFinite(beforeMs)&&Number.isFinite(afterMs)&&beforeMs!==afterMs;
+  const baseNote=interpolated
+    ? `Base de ${dailyGainDateLabel(targetMs)} interpolada entre ${dailyGainDateLabel(beforeMs)} y ${dailyGainDateLabel(afterMs)}.`
+    : `Base: ${dailyGainDateLabel(targetMs)}.`;
+  const omittedNote=omitted
+    ? ` ${omitted} ${omitted===1?"coro omitido":"coros omitidos"} por no tener una base comparable.`
+    : "";
+
+  dailyGainPanel.innerHTML=`
+    <div class="daily-gain-head">
+      <div>
+        <h2>Votos sumados desde ayer a las 17:00</h2>
+        <p>${esc(title)} · hasta ${esc(dailyGainDateLabel(Date.parse(historySnapshots.at(-1)?.at)))}</p>
+      </div>
+      <strong>${rows.length} ${rows.length===1?"coro":"coros"}</strong>
+    </div>
+    <div class="daily-gain-bars" role="img" aria-label="Votos sumados desde ayer a las 17:00">
+      ${rows.map((item,i)=>{
+        const width=Math.max(1.5,Math.max(0,item.gain)/maxGain*100);
+        const gain=Math.round(item.gain);
+        return `
+          <div class="daily-gain-row">
+            <div class="daily-gain-rank">#${i+1}</div>
+            <div class="daily-gain-name" title="${esc(item.name)}">${esc(item.name)}</div>
+            <div class="daily-gain-track">
+              <div class="daily-gain-fill" style="width:${width}%"></div>
+            </div>
+            <strong class="daily-gain-value">${gain>=0?"+":""}${n(gain)}</strong>
+          </div>`;
+      }).join("")}
+    </div>
+    <p class="daily-gain-note">${esc(baseNote+omittedNote)}</p>`;
+}
+
 function snapshotBefore(targetMs){
   let found=null;
   for(const s of historySnapshots){
@@ -516,6 +661,7 @@ function chooseLevel(label){
   });
   updateCategoryTotal();
   renderChart();
+  renderDailyGain();
 }
 function setFilters(levels){
   const labels=["General",...levels];
@@ -609,6 +755,7 @@ function render(data){
   rankings.innerHTML=sections.join("");
   updateCategoryTotal();
   renderChart();
+  renderDailyGain();
   updateStatus(data);
 }
 function updateStatus(data){
