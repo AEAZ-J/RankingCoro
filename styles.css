@@ -638,3 +638,76 @@ a{color:inherit}
     font-size:.64rem;
   }
 }
+
+
+/* Selector de inicio del ranking completo */
+.daily-gain-controls{
+  display:flex;
+  align-items:end;
+  gap:9px;
+  flex-wrap:wrap;
+  padding:10px;
+  margin:0 0 14px;
+  border:1px solid var(--border-soft);
+  background:var(--surface-2);
+  border-radius:11px;
+}
+.daily-gain-controls label{
+  display:grid;
+  gap:4px;
+}
+.daily-gain-controls label>span{
+  color:var(--muted);
+  font-size:.68rem;
+  font-weight:750;
+}
+.daily-gain-controls input{
+  min-height:36px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+  border-radius:9px;
+  padding:6px 8px;
+  font:inherit;
+  font-size:.78rem;
+}
+.daily-gain-controls button{
+  min-height:36px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+  border-radius:9px;
+  padding:6px 10px;
+  font:inherit;
+  font-size:.75rem;
+  font-weight:750;
+  cursor:pointer;
+}
+.daily-gain-controls button:hover:not(:disabled){
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+}
+.daily-gain-controls button:disabled{
+  opacity:.45;
+  cursor:default;
+}
+@media(max-width:700px){
+  .daily-gain-controls{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(94px,.7fr);
+    gap:7px;
+    padding:8px;
+  }
+  .daily-gain-controls input{
+    width:100%;
+    min-width:0;
+    font-size:.72rem;
+  }
+  .daily-gain-controls button{
+    grid-column:1/-1;
+    width:100%;
+    min-height:34px;
+    font-size:.7rem;
+  }
+}
