@@ -7,6 +7,14 @@ on:
         description: "Esperar 5 minutos antes de leer la API"
         required: false
         default: "true"
+  push:
+    branches:
+      - main
+    paths:
+      - "app.js"
+      - "index.html"
+      - "styles.css"
+      - ".github/workflows/update-ranking.yml"
 
 permissions:
   contents: read
@@ -19,11 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     concurrency:
-      group: ranking-data-cycle
-      cancel-in-progress: false
+      group: ${{ github.event_name == 'push' && 'ranking-code-publish' || 'ranking-data-cycle' }}
+      cancel-in-progress: ${{ github.event_name == 'push' }}
 
     steps:
       - name: Programar relevo
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -64,7 +73,7 @@ jobs:
           fi
 
       - name: Mantener cadencia
-        if: ${{ inputs.wait_before_update != 'false' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.wait_before_update != 'false' }}
         run: |
           echo "Esperando 5 minutos antes de la siguiente lectura."
           sleep 300
