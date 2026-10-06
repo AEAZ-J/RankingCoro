@@ -462,7 +462,7 @@ function dailyGainRows(){
   if(!before||!after)return {rows:[],omitted:0,targetMs,before,after};
 
   let omitted=0;
-  const rows=selectedGroups().map(g=>{
+  const rows=currentGroups.map(g=>{
     const end=Number(latest.votes?.[g.name]);
     const start=interpolatedVoteAt(g.name,targetMs,before,after);
     if(!Number.isFinite(start)||!Number.isFinite(end)){
@@ -477,7 +477,7 @@ function dailyGainRows(){
 function renderDailyGain(){
   if(!dailyGainPanel)return;
   const {rows,omitted,targetMs,before,after}=dailyGainRows();
-  const title=selected==="General"?"Todos los coros":selected;
+  const title="Ranking completo";
 
   if(!rows.length){
     dailyGainPanel.innerHTML=`
