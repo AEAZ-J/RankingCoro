@@ -1081,3 +1081,13 @@ a{color:inherit}
   .bar-chart-count{display:none}
   .level-head h2{font-size:1.22rem}
 }
+
+/* QC: preserve readable ranking controls on narrow displays. */
+@media(max-width:420px){
+  .ranking-list-toolbar{gap:6px}
+  .expand-all-button{min-width:0;max-width:calc(100% - 49px);padding:8px 9px}
+  .expand-all-button span{overflow-wrap:anywhere;text-align:left}
+  .rank-heading-group{flex:1;min-width:0}
+  .rank-more-toggle{max-width:48%;min-width:0}
+  .rank-more-label{white-space:normal;text-align:center}
+}
