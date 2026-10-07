@@ -3,8 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 const API="https://app.juntossuenamejor.cl/api/voting/choirs?round_code=first";
 const DATA="data.json";
 const HISTORY="history.json";
-const LIVE_HISTORY="https://aeaz-j.github.io/RankingCoro/history.json";
-const LIVE_DATA="https://aeaz-j.github.io/RankingCoro/data.json";
+const LIVE_HISTORY="https://raw.githubusercontent.com/AEAZ-J/RankingCoro/main/history.json";
+const LIVE_DATA="https://raw.githubusercontent.com/AEAZ-J/RankingCoro/main/data.json";
 const MAX_AGE_MS=30*24*60*60*1000;
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
