@@ -217,7 +217,36 @@ function parseLink(){
   if(p.has("hist")){
     const v=Number(p.get("hist"));if(Number.isFinite(v)&&v>0){state.at=v;state.follow=false;}
   }
-  if($("#choirSearch")&&p.has("search"))$("#choirSearch").value=p.get("search").slice(0,160);
+  if($("#choirSearch")&&p.has("search")){
+    const search=p.get("search").slice(0,160);
+    $("#choirSearch").value=search;
+    // Shared searches must be visibly editable, not hidden behind a closed magnifier.
+    if(search.trim()){
+      const popover=$("#rankingSearchPanel"),toggle=$("#choirSearchToggle");
+      if(popover)popover.hidden=false;
+      toggle?.setAttribute("aria-expanded","true");
+      toggle?.setAttribute("aria-label","Cerrar búsqueda de coros");
+    }
+  }
+  const panelLookup={
+    chart:".chart-panel",
+    bars:"#barChartDetails",
+    comparison:"#insightComparePanel",
+    growth:"#insightGrowthPanel",
+    history:"#insightHistoryPanel",
+    quality:"#insightQualityPanel",
+    changes:"#windowPicker"
+  };
+  if(p.has("views")){
+    const openViews=new Set((p.get("views")||"").split(","));
+    for(const [name,selector] of Object.entries(panelLookup)){
+      const el=$(selector);if(el)el.open=openViews.has(name);
+    }
+  }else{
+    // Compatibility with links generated before the foldout state was shared.
+    if(p.has("hist")&&$("#insightHistoryPanel"))$("#insightHistoryPanel").open=true;
+    if(["window","gain"].includes(p.get("bar"))&&$("#barChartDetails"))$("#barChartDetails").open=true;
+  }
 }
 function makeLink(){
   const u=new URL(window.location.href),p=u.searchParams;
@@ -229,6 +258,18 @@ function makeLink(){
   if(!state.follow&&Number.isFinite(state.at))p.set("hist",String(state.at));else p.delete("hist");
   const text=$("#choirSearch")?.value.trim();
   if(text)p.set("search",text);else p.delete("search");
+  const viewLookup={
+    chart:".chart-panel",
+    bars:"#barChartDetails",
+    comparison:"#insightComparePanel",
+    growth:"#insightGrowthPanel",
+    history:"#insightHistoryPanel",
+    quality:"#insightQualityPanel",
+    changes:"#windowPicker"
+  };
+  p.set("views",Object.entries(viewLookup)
+    .filter(([,selector])=>Boolean($(selector)?.open))
+    .map(([name])=>name).join(","));
   return u.toString();
 }
 async function copyLink(){
