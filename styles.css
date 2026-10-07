@@ -661,7 +661,8 @@ a{color:inherit}
   font-size:.68rem;
   font-weight:750;
 }
-.daily-gain-controls input{
+.daily-gain-controls input,
+.daily-gain-controls select{
   min-height:36px;
   border:1px solid var(--border);
   background:var(--surface);
@@ -699,7 +700,8 @@ a{color:inherit}
     gap:7px;
     padding:8px;
   }
-  .daily-gain-controls input{
+  .daily-gain-controls input,
+  .daily-gain-controls select{
     width:100%;
     min-width:0;
     font-size:.72rem;
@@ -711,3 +713,5 @@ a{color:inherit}
     font-size:.7rem;
   }
 }
+
+.daily-gain-controls select{max-width:100%;cursor:pointer}
