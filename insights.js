@@ -177,6 +177,8 @@ function renderHistory(){
 function renderQuality(){
   const out=$("#insightQualityContent");
   if(!out)return;
+  // Keep technical details open when live data triggers a redraw.
+  const showTechnicalDetails=Boolean(out.querySelector(".insight-tech-details")?.open);
   const ss=snapList(),last=ss.at(-1),first=ss[0],dt=Date.parse(latestData?.updatedAt);
   const age=Date.now()-dt,stale=latestData?.stale||!Number.isFinite(dt)||age>DELAY_WARNING_MS;
   const gaps=ss.slice(1).map((s,i)=>Date.parse(s.at)-Date.parse(ss[i].at)).filter(v=>v>0);
@@ -191,8 +193,14 @@ function renderQuality(){
     <div><small>Historial</small><strong>${ss.length} mediciones</strong><span>${first?dateLabel(Date.parse(first.at))+" → "+dateLabel(Date.parse(last.at)):"No disponible"}</span></div>
     <div><small>Cobertura última medición</small><strong>${covered} / ${currentGroups.length} coros</strong><span>Sin asumir votos ausentes</span></div>
     <div><small>Interrupciones posibles</small><strong>${outages}</strong><span>Intervalos anormalmente largos</span></div>
-    <div><small>Versión publicada</small><strong>${version}</strong><span>Identificador de GitHub Pages</span></div>
-  </div>`;
+  </div>
+  <details class="insight-tech-details" ${showTechnicalDetails?"open":""}>
+    <summary>Detalles técnicos</summary>
+    <div class="insight-tech-build">
+      <span>Versión publicada</span>
+      <strong>${version}</strong>
+    </div>
+  </details>`;
 }
 async function loadVersion(){
   if(typeof fetch!=="function")return;

@@ -992,3 +992,18 @@ a{color:inherit}
  .insight-history-row{grid-template-columns:24px minmax(0,1fr) 64px 26px;gap:5px;padding:8px 5px}
  .insight-history-row>span:nth-child(2){font-size:.72rem}
 }
+
+/* Los detalles de publicación son solo para diagnóstico y se ocultan por defecto. */
+.insight-tech-details{margin-top:12px;border-top:1px solid var(--border-soft);padding-top:8px}
+.insight-tech-details>summary{
+  cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:7px;
+  color:var(--muted);font-size:.69rem;font-weight:650;padding:5px 0;
+}
+.insight-tech-details>summary::-webkit-details-marker{display:none}
+.insight-tech-details>summary::before{content:"▸";font-size:.7rem;transition:transform .15s}
+.insight-tech-details[open]>summary::before{transform:rotate(90deg)}
+.insight-tech-build{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;
+  padding:9px 11px;margin-top:5px;border:1px solid var(--border-soft);border-radius:8px;
+  color:var(--muted);font-size:.7rem;background:var(--surface-2)}
+.insight-tech-build strong{font-size:.72rem;color:var(--text);font-weight:650}
+.insight-tech-build a{color:inherit}
