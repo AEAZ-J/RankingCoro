@@ -200,6 +200,11 @@ function parseLink(){
   if(!window.location?.href||typeof URL!=="function")return;
   const p=new URL(window.location.href).searchParams;
   if(p.has("cat")&&p.get("cat").length<110)selected=p.get("cat");
+  if(p.get("view")==="categories"){
+    showAllCategories=true;
+    previousSingleCategory=p.get("return")?.slice(0,110)||"Intermedio";
+    selected="General";
+  }
   if(["votes","new","gain","rank","gap"].includes(p.get("chart")))chartType.value=p.get("chart");
   if(["1","3","6","12","24","all"].includes(p.get("period")))chartPeriod.value=p.get("period");
   if(p.has("choirs")){chartSelectionsByLevel[selected]=parseArray(p.get("choirs"));chartSelectionLevel="";}
@@ -251,6 +256,8 @@ function parseLink(){
 function makeLink(){
   const u=new URL(window.location.href),p=u.searchParams;
   p.set("cat",selected);p.set("chart",chartType?.value||"votes");p.set("period",chartPeriod?.value||"6");
+  if(showAllCategories){p.set("view","categories");p.set("return",previousSingleCategory);}
+  else{p.delete("view");p.delete("return");}
   ensureChartSelection();p.set("choirs",JSON.stringify([...chartSelectedNames]));
   p.set("bar",gainMode);p.set("dir",gainWindowDirection);p.set("hours",String(gainWindowHours));
   for(const [k,v] of [["from",gainFromMs],["at",gainUntilMs]])if(Number.isFinite(v))p.set(k,v);else p.delete(k);
