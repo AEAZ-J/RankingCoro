@@ -423,8 +423,6 @@ function initCharts(){
   chartPeriod?.addEventListener("change",renderChart);
   chartChoirs?.addEventListener("click",handleChoirSelectionClick);
   chartChoirs?.addEventListener("change",handleChoirSelectionChange);
-  dailyGainPanel?.addEventListener("click",handleChoirSelectionClick);
-  dailyGainPanel?.addEventListener("change",handleChoirSelectionChange);
 }
 
 function santiagoParts(ms){
@@ -519,7 +517,7 @@ function baselineVoteAt(name,targetMs){
 function dailyGainRows(){
   const {firstMs,lastMs}=historyTimeBounds();
   const targetMs=gainMode==="total"?null:gainStartMs();
-  const rows=selectedGroups().filter(g=>chartSelectedNames.has(g.name)).map(g=>{
+  const rows=selectedGroups().map(g=>{
     const current=Number(g.votes);
     const base=gainMode==="total"
       ? {value:0,partial:false}
@@ -570,7 +568,6 @@ function wireDailyGainControls(firstMs,lastMs){
 }
 function renderDailyGain(){
   if(!dailyGainPanel)return;
-  ensureChartSelection();
   const {rows,targetMs,firstMs,lastMs,partialCount,missingCount}=dailyGainRows();
   const isTotal=gainMode==="total";
   const hasHistory=Number.isFinite(firstMs)&&Number.isFinite(lastMs);
@@ -610,21 +607,17 @@ function renderDailyGain(){
       </label>
       <button type="button" id="gainFromStart" ${atFirst?"disabled":""}>Primer registro</button>`:""}
     </div>`;
-  const choirControls=`
-    <div class="daily-gain-choirs">
-      <div class="chart-section-label">Coros visibles · puedes agregar o quitar</div>
-      ${chartChoirPickerMarkup()}
-    </div>`;
+
 
   if(!isTotal&&!hasHistory){
-    dailyGainPanel.innerHTML=header+controls+choirControls+
+    dailyGainPanel.innerHTML=header+controls+
       '<div class="daily-gain-empty">No hay historial suficiente. Selecciona “Todos los votos (total)”.</div>';
     wireDailyGainControls(firstMs,lastMs);
     return;
   }
   if(!rows.length){
-    dailyGainPanel.innerHTML=header+controls+choirControls+
-      (chartGroups().length?'<div class="daily-gain-empty">Agrega coros con el selector para mostrarlos.</div>':'<div class="daily-gain-empty">No hay coros en esta categoría.</div>');
+    dailyGainPanel.innerHTML=header+controls+
+      '<div class="daily-gain-empty">No hay coros en esta categoría.</div>';
     wireDailyGainControls(firstMs,lastMs);
     return;
   }
@@ -649,7 +642,7 @@ function renderDailyGain(){
     ?"Votos totales actuales: incluye los votos anteriores a nuestro primer registro. No se resta ninguna medición."
     :`Ganancias calculadas únicamente con mediciones disponibles. ${partialCount?`* En ${partialCount} coro(s) nuevos se usa su primer dato posterior como base, sin suponer cero votos anteriores.`:""} ${missingCount?`Hay ${missingCount} coro(s) sin datos históricos comparables.`:""}`;
 
-  dailyGainPanel.innerHTML=header+controls+choirControls+`
+  dailyGainPanel.innerHTML=header+controls+`
     <div class="daily-gain-bars" role="img" aria-label="${esc(isTotal?"Votos totales por coro":"Votos ganados por coro desde fecha elegida")}">
       ${bars}
     </div>
