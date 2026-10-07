@@ -27,6 +27,21 @@ jobs:
     timeout-minutes: 3
 
     steps:
+      - name: Restaurar la publicación vigente tras un despliegue antiguo
+        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_SHA=$(gh api "repos/${{ github.repository }}/git/ref/heads/main" --jq '.object.sha')
+          if [ "$EVENT_SHA" != "$CURRENT_SHA" ]; then
+            echo "::warning::Terminó una ejecución antigua ($EVENT_SHA); republicando main $CURRENT_SHA."
+            gh workflow run update-ranking.yml --ref main -f wait_before_update=false
+          else
+            echo "La última ejecución ya corresponde a la versión vigente."
+          fi
+
       - name: Comprobar y recuperar cadena
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
