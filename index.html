@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
-  <link rel="stylesheet" href="styles.css?v=20261006-11">
+  <link rel="stylesheet" href="styles.css?v=20261006-12">
 </head>
 <body>
   <main class="wrap">
@@ -58,6 +58,8 @@
     </details>
 
     <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
+    <div class="insight-share"><span id="insightLinkStatus">Comparte una vista con tus filtros y coros.</span>
+      <button id="insightShareLink" type="button">↗ Copiar enlace con filtros</button></div>
 
     <details class="chart-panel">
       <summary class="chart-panel-summary">
@@ -124,10 +126,55 @@
       <div class="daily-gain-empty">Cargando ranking completo de votos sumados…</div>
     </section>
 
+
+    <details class="insight-panel" id="insightComparePanel" open>
+      <summary><span><strong>Comparador de coros</strong><small>Curvas y diferencias entre participantes</small></span>⌄</summary>
+      <div class="insight-body">
+        <label>Período histórico <select id="insightCompareWindow">
+          <option value="1">1h</option><option value="3">3h</option><option value="6" selected>6h</option>
+          <option value="12">12h</option><option value="24">24h</option><option value="48">48h</option>
+        </select></label>
+        <div id="insightComparePick" class="insight-pick"></div>
+        <div id="insightCompareResults"></div>
+      </div>
+    </details>
+    <details class="insight-panel" id="insightGrowthPanel" open>
+      <summary><span><strong>Ranking de crecimiento</strong><small>Votos ganados en un período, no votos totales</small></span>⌄</summary>
+      <div class="insight-body">
+        <label>Últimas horas <select id="insightGrowthWindow">
+          <option value="1">1h</option><option value="3">3h</option><option value="6" selected>6h</option>
+          <option value="12">12h</option><option value="24">24h</option><option value="48">48h</option>
+        </select></label><p id="insightGrowthMeta" class="insight-help"></p>
+        <div id="insightGrowthResults"></div>
+      </div>
+    </details>
+    <details class="insight-panel" id="insightHistoryPanel">
+      <summary><span><strong>Ranking histórico y animación</strong><small>Revisa cómo cambiaron las posiciones</small></span>⌄</summary>
+      <div class="insight-body">
+        <div class="insight-controls">
+          <label>Fecha/hora (Chile) <input id="insightDatetime" type="datetime-local"></label>
+          <button id="insightLatest" type="button">Más reciente</button>
+          <button id="insightPrevious" type="button" aria-label="Registro anterior">←</button>
+          <button id="insightPlay" type="button">▶ Reproducir</button>
+          <button id="insightNext" type="button" aria-label="Registro siguiente">→</button>
+          <label>Velocidad<select id="insightSpeed">
+            <option value="1700">Lenta</option><option value="1000" selected>Normal</option><option value="450">Rápida</option>
+          </select></label>
+        </div>
+        <input id="insightSlider" type="range" min="0" max="0" value="0" aria-label="Recorrer el historial">
+        <p id="insightFrameLabel" class="insight-help"></p>
+        <div id="insightHistoryRows"></div>
+      </div>
+    </details>
+    <details class="insight-panel" id="insightQualityPanel">
+      <summary><span><strong>Estado de los datos y versión publicada</strong><small id="insightQualityCaption">Revisando historial…</small></span>⌄</summary>
+      <div class="insight-body" id="insightQualityContent"></div>
+    </details>
     <footer>
       <p>Fuente: <a href="https://app.juntossuenamejor.cl/votacion" target="_blank" rel="noopener">votación pública Juntos Suena Mejor</a>.</p>
     </footer>
   </main>
-  <script src="app.js?v=20261006-12"></script>
+  <script src="app.js?v=20261006-13"></script>
+  <script src="insights.js?v=20261006-01"></script>
 </body>
 </html>

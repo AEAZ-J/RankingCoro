@@ -1221,6 +1221,7 @@ function chooseLevel(label){
   renderChart();
   renderDailyGain();
   applyChoirSearch();
+  if(typeof window.renderInsights==="function")window.renderInsights();
 }
 function setFilters(levels){
   const labels=["General",...levels];
@@ -1291,6 +1292,7 @@ function render(data){
   if(signature===lastSignature&&rankings.children.length){
     updateStatus(data);
     updateCategoryTotal();
+    if(typeof window.renderDataQuality==="function")window.renderDataQuality();
     return;
   }
   lastSignature=signature;
@@ -1317,6 +1319,7 @@ function render(data){
   renderChart();
   renderDailyGain();
   updateStatus(data);
+  if(typeof window.renderInsights==="function")window.renderInsights();
 }
 function updateStatus(data){
   const dt=data.updatedAt?new Date(data.updatedAt):null;
