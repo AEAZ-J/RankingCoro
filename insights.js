@@ -3,7 +3,7 @@
 "use strict";
 const $=s=>document.querySelector(s),H=3600000;
 const colors=["#2563eb","#16a34a","#9333ea","#d97706","#0891b2","#dc2626","#64748b"];
-const state={level:"",compare:{},cmpHours:6,growthHours:6,at:null,follow:true,playing:null,speed:1000,build:null};
+const state={level:"",compare:{},cmpHours:6,growthHours:6,at:null,follow:true,playing:null,};
 const snapList=()=>historySnapshots.filter(s=>s?.votes&&Number.isFinite(Date.parse(s.at)))
   .slice().sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
 const groups=()=>selectedGroups().slice().sort((a,b)=>(Number(b.votes)||0)-(Number(a.votes)||0));
@@ -177,37 +177,19 @@ function renderHistory(){
 function renderQuality(){
   const out=$("#insightQualityContent");
   if(!out)return;
-  // Keep technical details open when live data triggers a redraw.
-  const showTechnicalDetails=Boolean(out.querySelector(".insight-tech-details")?.open);
   const ss=snapList(),last=ss.at(-1),first=ss[0],dt=Date.parse(latestData?.updatedAt);
   const age=Date.now()-dt,stale=latestData?.stale||!Number.isFinite(dt)||age>DELAY_WARNING_MS;
   const gaps=ss.slice(1).map((s,i)=>Date.parse(s.at)-Date.parse(ss[i].at)).filter(v=>v>0);
   const interval=gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)]||0;
   const outages=gaps.filter(v=>v>Math.max(20*60000,interval*3)).length;
   const covered=last?currentGroups.filter(g=>vote(last,g.name)!==null).length:0;
-  const version=state.build?.commit&&/^[0-9a-f]{40}$/i.test(state.build.commit)
-   ?`<a href="https://github.com/AEAZ-J/RankingCoro/commit/${state.build.commit}" target="_blank" rel="noopener">${state.build.commit.slice(0,9)}</a> · despliegue #${esc(state.build.run||"—")}`:"Versión no disponible";
   $("#insightQualityCaption").textContent=`${ss.length} registros · ${stale?"Actualización retrasada":"Datos recientes"}`;
   out.innerHTML=`<div class="insight-quality-grid">
     <div><small>Fuente</small><strong>${stale?"Retrasada":"Actualizada"}</strong><span>${dateLabel(dt)}</span></div>
     <div><small>Historial</small><strong>${ss.length} mediciones</strong><span>${first?dateLabel(Date.parse(first.at))+" → "+dateLabel(Date.parse(last.at)):"No disponible"}</span></div>
     <div><small>Cobertura última medición</small><strong>${covered} / ${currentGroups.length} coros</strong><span>Sin asumir votos ausentes</span></div>
     <div><small>Interrupciones posibles</small><strong>${outages}</strong><span>Intervalos anormalmente largos</span></div>
-  </div>
-  <details class="insight-tech-details" ${showTechnicalDetails?"open":""}>
-    <summary>Detalles técnicos</summary>
-    <div class="insight-tech-build">
-      <span>Versión publicada</span>
-      <strong>${version}</strong>
-    </div>
-  </details>`;
-}
-async function loadVersion(){
-  if(typeof fetch!=="function")return;
-  try{
-    const res=await fetch("version.json?t="+Date.now(),{cache:"no-store"});
-    if(res.ok){state.build=await res.json();renderQuality();}
-  }catch{}
+  </div>`;
 }
 function renderAll(){renderCompare();renderGrowth();renderHistory();renderQuality();}
 function parseArray(json){
@@ -288,7 +270,6 @@ function init(){
   $("#insightSpeed")?.addEventListener("change",e=>{state.speed=Number(e.target.value)||1000;if(state.playing!==null){stop();playback();}});
   $("#insightLatest")?.addEventListener("click",()=>{stop();state.follow=true;state.at=null;renderHistory();});
   window.addEventListener("pagehide",stop);
-  loadVersion();
   if(currentGroups.length)renderAll();
 }
 window.renderInsights=renderAll;
