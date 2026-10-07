@@ -1,6 +1,9 @@
 name: Actualizar ranking
 
 on:
+  # Respaldo independiente: recupera actualizaciones si se corta el relevo.
+  schedule:
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       wait_before_update:
@@ -90,7 +93,7 @@ jobs:
           node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('data.json','utf8')); JSON.parse(fs.readFileSync('history.json','utf8'));"
 
       - name: Leer API de votación
-        timeout-minutes: 2
+        timeout-minutes: 3
         run: node scripts/fetch-api.mjs
 
       - name: Preparar sitio
