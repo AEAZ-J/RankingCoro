@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
-  <link rel="stylesheet" href="styles.css?v=20261006-13">
+  <link rel="stylesheet" href="styles.css?v=20261006-14">
 </head>
 <body>
   <main class="wrap">
@@ -41,25 +41,28 @@
       <div><span id="levelCount">—</span><small>niveles</small></div>
     </section>
 
-    <details class="window-picker">
-      <summary class="window-picker-summary">
-        <div class="window-picker-copy">
-          <strong>Cambios a mostrar</strong>
-          <small>Últ. y 1h siempre visibles</small>
+    <div class="ranking-navigation">
+      <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
+      <details id="windowPicker" class="window-picker window-picker-compact">
+        <summary class="window-picker-summary" aria-label="Cambios a mostrar" title="Cambios a mostrar">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/>
+            <circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>
+          </svg>
+          <span class="sr-only">Cambios a mostrar</span>
+        </summary>
+        <div class="window-picker-controls">
+          <p class="window-picker-popover-title">Cambios a mostrar</p>
+          <small>Último cambio y 1h siempre visibles</small>
+          <div id="windowChips" class="window-chips"></div>
+          <select id="windowSelect" aria-label="Agregar intervalo">
+            <option value="">Agregar intervalo…</option>
+          </select>
         </div>
-        <span class="window-picker-chevron" aria-hidden="true">⌄</span>
-      </summary>
-      <div class="window-picker-controls">
-        <div id="windowChips" class="window-chips"></div>
-        <select id="windowSelect" aria-label="Agregar intervalo">
-          <option value="">Agregar intervalo…</option>
-        </select>
-      </div>
-    </details>
+      </details>
+    </div>
 
-    <nav id="tabs" class="tabs" aria-label="Niveles"></nav>
-    <div class="insight-share"><span id="insightLinkStatus">Comparte una vista con tus filtros y coros.</span>
-      <button id="insightShareLink" type="button">↗ Copiar enlace con filtros</button></div>
 
     <details class="chart-panel">
       <summary class="chart-panel-summary">
@@ -111,23 +114,55 @@
     </section>
 
     
-    <section class="ranking-search-panel" role="search" aria-label="Buscar coro en el ranking">
-      <label for="choirSearch">Buscar coro</label>
-      <div class="ranking-search-input-row">
-        <input id="choirSearch" type="search" placeholder="Nombre del coro…" autocomplete="off" spellcheck="false">
-        <button id="choirSearchClear" type="button" hidden aria-label="Borrar búsqueda">×</button>
+    <div class="ranking-list-toolbar">
+      <button id="expandAllPanels" class="expand-all-button" type="button"
+        aria-expanded="false" title="Desplegar todas las secciones">
+        <svg width="19" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 6 6 5 6-5M6 13l6 5 6-5"/>
+        </svg>
+        <span id="expandAllLabel">Desplegar todo</span>
+      </button>
+      <div class="ranking-search-wrap">
+        <button id="choirSearchToggle" class="ranking-search-toggle" type="button"
+          aria-label="Abrir búsqueda de coros" aria-expanded="false"
+          aria-controls="rankingSearchPanel" title="Buscar coro">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="10.8" cy="10.8" r="6.6"/><path d="m16 16 4.8 4.8"/>
+          </svg>
+        </button>
+        <section id="rankingSearchPanel" class="ranking-search-panel ranking-search-popover"
+          role="search" aria-label="Buscar coro en el ranking" hidden>
+          <label for="choirSearch">Buscar coro</label>
+          <div class="ranking-search-input-row">
+            <input id="choirSearch" type="search" placeholder="Nombre del coro…"
+              autocomplete="off" spellcheck="false">
+            <button id="choirSearchClear" type="button" hidden aria-label="Borrar búsqueda">×</button>
+          </div>
+          <small id="choirSearchStatus" aria-live="polite">Busca por nombre dentro de la categoría seleccionada.</small>
+        </section>
       </div>
-      <small id="choirSearchStatus" aria-live="polite">Busca por nombre dentro de la categoría seleccionada.</small>
-    </section>
+    </div>
     <section id="rankings" class="rankings" aria-live="polite"></section>
     <p id="choirSearchEmpty" class="ranking-search-empty" hidden>No hay coros que coincidan. Prueba otro nombre o selecciona General.</p>
 
-    <section id="dailyGainPanel" class="daily-gain-panel" aria-live="polite">
-      <div class="daily-gain-empty">Cargando ranking completo de votos sumados…</div>
-    </section>
+    <details id="barChartDetails" class="bar-chart-panel">
+      <summary class="bar-chart-summary">
+        <span class="bar-chart-title-group">
+          <strong id="barChartTitle">Gráfico de barras · Ranking Intermedio</strong>
+          <small id="barChartDetail">Votos totales acumulados</small>
+        </span>
+        <span id="barChartCount" class="bar-chart-count"></span>
+        <span class="window-picker-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <section id="dailyGainPanel" class="daily-gain-panel" aria-live="polite">
+        <div class="daily-gain-empty">Cargando gráfico de barras…</div>
+      </section>
+    </details>
 
 
-    <details class="insight-panel" id="insightComparePanel" open>
+    <details class="insight-panel" id="insightComparePanel">
       <summary><span><strong>Comparador de coros</strong><small>Curvas y diferencias entre participantes</small></span>⌄</summary>
       <div class="insight-body">
         <label>Período histórico <select id="insightCompareWindow">
@@ -138,7 +173,7 @@
         <div id="insightCompareResults"></div>
       </div>
     </details>
-    <details class="insight-panel" id="insightGrowthPanel" open>
+    <details class="insight-panel" id="insightGrowthPanel">
       <summary><span><strong>Ranking de crecimiento</strong><small>Votos ganados en un período, no votos totales</small></span>⌄</summary>
       <div class="insight-body">
         <label>Últimas horas <select id="insightGrowthWindow">
@@ -170,11 +205,13 @@
       <summary><span><strong>Estado de los datos</strong><small id="insightQualityCaption">Revisando historial…</small></span>⌄</summary>
       <div class="insight-body" id="insightQualityContent"></div>
     </details>
+    <div class="insight-share"><span id="insightLinkStatus">Comparte una vista con tus filtros y coros.</span>
+      <button id="insightShareLink" type="button">↗ Copiar enlace con filtros</button></div>
     <footer>
       <p>Fuente: <a href="https://app.juntossuenamejor.cl/votacion" target="_blank" rel="noopener">votación pública Juntos Suena Mejor</a>.</p>
     </footer>
   </main>
-  <script src="app.js?v=20261006-13"></script>
+  <script src="app.js?v=20261006-14"></script>
   <script src="insights.js?v=20261006-02"></script>
 </body>
 </html>

@@ -14,6 +14,8 @@ const DELAY_WARNING_MS = 12 * 60 * 1000;
 const rankings = document.querySelector("#rankings");
 const choirSearchInput = document.querySelector("#choirSearch");
 const choirSearchClear = document.querySelector("#choirSearchClear");
+const choirSearchToggle = document.querySelector("#choirSearchToggle");
+const choirSearchPanel = document.querySelector("#rankingSearchPanel");
 const choirSearchStatus = document.querySelector("#choirSearchStatus");
 const choirSearchEmpty = document.querySelector("#choirSearchEmpty");
 const tabs = document.querySelector("#tabs");
@@ -58,6 +60,7 @@ let gainWindowHours = 6;
 let gainWindowCustom = false;
 let gainWindowDirection = "backward";
 let barPeriodExpanded = true;
+const rankExpandedLevels = Object.create(null);
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -906,14 +909,14 @@ function renderDailyGain(){
     ?`Ventana de ${n(gainWindowHours)} h: ${dailyGainDateLabel(interval.fromMs)} → ${dailyGainDateLabel(interval.untilMs)}`
     :"Sin historial disponible";
 
-  const header=`
-    <div class="daily-gain-head">
-      <div>
-        <h2>Gráfico de barras · Ranking ${esc(selected)}</h2>
-        <p>${esc(category)} · ${esc(detail)}${isTotal&&Number.isFinite(currentMs)?` · actualizado ${dailyGainDateLabel(currentMs)}`:""}</p>
-      </div>
-      <strong>${rows.length} ${rows.length===1?"coro":"coros"}</strong>
-    </div>`;
+  const barTitle=document.querySelector("#barChartTitle");
+  const barDetail=document.querySelector("#barChartDetail");
+  const barCount=document.querySelector("#barChartCount");
+  if(barTitle)barTitle.textContent="Gráfico de barras · Ranking "+selected;
+  if(barDetail)barDetail.textContent=category+" · "+detail+
+    (isTotal&&Number.isFinite(currentMs)?" · actualizado "+dailyGainDateLabel(currentMs):"");
+  if(barCount)barCount.textContent=rows.length+" "+(rows.length===1?"coro":"coros");
+  const header="";
 
   const modeOptions=[
     ["total","Todos los votos (total)"],
@@ -1189,6 +1192,7 @@ function applyChoirSearch(){
   const matches=groups.filter(g=>normalizeSearch(g.name).includes(query));
   const matchingNames=new Set(matches.map(g=>g.name));
   const section=[...rankings.querySelectorAll(".level")].find(el=>el.dataset.level===selected);
+  section?.classList.toggle("rank-search-active",Boolean(query));
   section?.querySelectorAll("[data-choir]").forEach(el=>{
     const matched=!query||matchingNames.has(el.dataset.choir);
     el.hidden=!matched;
@@ -1201,12 +1205,79 @@ function applyChoirSearch(){
   choirSearchEmpty.hidden=!query||matches.length>0;
 }
 function initChoirSearch(){
+  choirSearchToggle?.addEventListener("click",()=>{
+    const opening=Boolean(choirSearchPanel.hidden);
+    choirSearchPanel.hidden=!opening;
+    choirSearchToggle.setAttribute("aria-expanded",String(opening));
+    choirSearchToggle.setAttribute("aria-label",opening?"Cerrar búsqueda de coros":"Abrir búsqueda de coros");
+    if(opening)choirSearchInput?.focus();
+    else{
+      choirSearchInput.value="";
+      applyChoirSearch();
+    }
+  });
+  choirSearchInput?.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&!choirSearchPanel.hidden){
+      choirSearchToggle?.click();
+      choirSearchToggle?.focus();
+    }
+  });
   choirSearchInput?.addEventListener("input",applyChoirSearch);
   choirSearchClear?.addEventListener("click",()=>{
     choirSearchInput.value="";
     applyChoirSearch();
     choirSearchInput.focus();
   });
+}
+
+function updateExpandAllControl(){
+  const button=document.querySelector("#expandAllPanels");
+  if(!button)return;
+  const nativePanels=[...document.querySelectorAll(
+    ".chart-panel,.bar-chart-panel,.insight-panel,.window-picker"
+  )];
+  const rankingSections=[...rankings.querySelectorAll(".level")]
+    .filter(sec=>sec.querySelector("[data-rank-toggle]"));
+  const expanded=nativePanels.every(panel=>panel.open)&&
+    rankingSections.every(sec=>sec.classList.contains("rank-expanded"));
+  button.setAttribute("aria-expanded",String(expanded));
+  button.title=expanded?"Contraer todas las secciones":"Desplegar todas las secciones";
+  const label=document.querySelector("#expandAllLabel");
+  if(label)label.textContent=expanded?"Contraer todo":"Desplegar todo";
+}
+function setRankExpansion(level,expanded){
+  rankExpandedLevels[level]=Boolean(expanded);
+  const section=[...rankings.querySelectorAll(".level")].find(sec=>sec.dataset.level===level);
+  section?.classList.toggle("rank-expanded",Boolean(expanded));
+  const button=section?.querySelector("[data-rank-toggle]");
+  if(button){
+    button.setAttribute("aria-expanded",String(Boolean(expanded)));
+    button.title=expanded?"Mostrar solo los 3 primeros":"Mostrar el resto del ranking";
+    const label=button.querySelector(".rank-more-label");
+    if(label)label.textContent=expanded?"Mostrar los 3 primeros":"Mostrar el resto";
+  }
+  updateExpandAllControl();
+}
+function initRankingPanels(){
+  rankings?.addEventListener("click",event=>{
+    const button=event.target.closest("[data-rank-toggle]");
+    if(button)setRankExpansion(button.dataset.rankToggle,
+      !rankExpandedLevels[button.dataset.rankToggle]);
+  });
+  document.querySelector("#expandAllPanels")?.addEventListener("click",()=>{
+    const button=document.querySelector("#expandAllPanels");
+    const expand=button.getAttribute("aria-expanded")!=="true";
+    document.querySelectorAll(".chart-panel,.bar-chart-panel,.insight-panel,.window-picker")
+      .forEach(panel=>{panel.open=expand;});
+    rankings.querySelectorAll(".level").forEach(section=>{
+      setRankExpansion(section.dataset.level,expand);
+    });
+    updateExpandAllControl();
+  });
+  document.addEventListener("toggle",event=>{
+    if(event.target?.matches?.(".chart-panel,.bar-chart-panel,.insight-panel,.window-picker"))
+      updateExpandAllControl();
+  },true);
 }
 
 function chooseLevel(label){
@@ -1233,7 +1304,7 @@ function desktopRows(rows,leader,showLevel,moves){
     const ch=groupChanges(g.name,Number(g.votes)||0);
     const votes=Number(g.votes)||0;
     const previousVotes=i>0?(Number(rows[i-1]?.votes)||0):null;
-    return `<tr data-choir="${esc(g.name)}">
+    return `<tr data-choir="${esc(g.name)}" ${i>=3?'data-rank-extra="true"':""}>
       <td class="pos"><div class="pos-main"><span class="medal">${medal(i)}</span>${i+1}</div>${movementBadge(moves.get(g.name))}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
@@ -1248,7 +1319,7 @@ function mobileCards(rows,leader,showLevel,moves){
     const ch=groupChanges(g.name,Number(g.votes)||0);
     const votes=Number(g.votes)||0;
     const previousVotes=i>0?(Number(rows[i-1]?.votes)||0):null;
-    return `<article class="mobile-card" data-choir="${esc(g.name)}">
+    return `<article class="mobile-card" data-choir="${esc(g.name)}" ${i>=3?'data-rank-extra="true"':""}>
       <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span>${movementBadge(moves.get(g.name))}</div>
       <div class="mobile-main">
         <div class="mobile-name">${esc(g.name)}</div>
@@ -1268,10 +1339,21 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
   const total=rows.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
   const moves=latestRankMoves(rows);
   const isHidden=selected!==dataLevel;
-  return `<section class="level ${isHidden?"hidden-level":""}" data-level="${esc(dataLevel)}" ${isHidden?"hidden":""}>
+  const expanded=Boolean(rankExpandedLevels[dataLevel]);
+  return `<section class="level ${isHidden?"hidden-level":""} ${expanded?"rank-expanded":""}"
+    data-level="${esc(dataLevel)}" ${isHidden?"hidden":""}>
     <div class="level-head">
-      <h2>${esc(title)}</h2>
-      <span>${rows.length} ${rows.length===1?"coro":"coros"} · ${n(total)} votos</span>
+      <div class="rank-heading-group">
+        <h2>${esc(title)}</h2>
+        <span>${rows.length} ${rows.length===1?"coro":"coros"} · ${n(total)} votos</span>
+      </div>
+      ${rows.length>3?`<button class="rank-more-toggle" type="button" data-rank-toggle="${esc(dataLevel)}"
+        aria-expanded="${expanded}" title="${expanded?"Mostrar solo los 3 primeros":"Mostrar el resto del ranking"}">
+        <span class="rank-more-label">${expanded?"Mostrar los 3 primeros":"Mostrar el resto"}</span>
+        <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"
+          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>`:""}
     </div>
     <div class="desktop-table">
       <table>
@@ -1315,6 +1397,7 @@ function render(data){
   }
   rankings.innerHTML=sections.join("");
   applyChoirSearch();
+  updateExpandAllControl();
   updateCategoryTotal();
   renderChart();
   renderDailyGain();
@@ -1394,6 +1477,7 @@ async function load(){
 initTheme();
 initWindowPicker();
 initChoirSearch();
+initRankingPanels();
 initCharts();
 load();
 setInterval(()=>{if(document.visibilityState!=="hidden")load();},REFRESH_MS);
