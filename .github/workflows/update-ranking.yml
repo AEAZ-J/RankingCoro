@@ -1,9 +1,10 @@
 name: Actualizar ranking
 
 on:
-  # El relevo mantiene la cadencia. Este cron de respaldo recupera la cadena si se corta.
+  # Reinicia el worker periódicamente. Si GitHub retrasa este cron,
+  # el worker anterior sigue actualizando los datos durante varias horas.
   schedule:
-    - cron: '7,22,37,52 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
   push:
     branches:
@@ -13,28 +14,29 @@ on:
       - "insights.js"
       - "index.html"
       - "styles.css"
+      - "scripts/fetch-api.mjs"
       - ".github/workflows/update-ranking.yml"
 
 permissions:
   contents: write
   pages: write
   id-token: write
-  actions: write
 
-# Una sola ejecución integral a la vez: evita desplegar datos antiguos
-# sobre publicaciones más recientes y no genera ejecuciones encadenadas.
+# Un solo worker de datos. Un nuevo schedule/push reemplaza al anterior.
 concurrency:
-  group: ranking-pages-update-v2
-  cancel-in-progress: false
+  group: ranking-live-worker-v3
+  cancel-in-progress: true
 
 jobs:
-  update:
+  live-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 350
 
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Validar archivos
         run: |
@@ -43,25 +45,80 @@ jobs:
           node --check scripts/fetch-api.mjs
           node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('data.json','utf8')); JSON.parse(fs.readFileSync('history.json','utf8'));"
 
-      - name: Leer API de votación
-        timeout-minutes: 3
-        run: node scripts/fetch-api.mjs
-
-      - name: Guardar datos frescos en main
+      - name: Actualizar datos cada 5 minutos
         run: |
           set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.json history.json
-          if git diff --cached --quiet; then
-            echo "Sin cambios de datos."
-          else
-            git commit -m "data: actualizar ranking [skip ci]"
-            git push origin HEAD:main || {
-              git pull --rebase origin main
-              git push origin HEAD:main
-            }
-          fi
+
+          CUTOFF="2026-10-11T03:05:00Z"
+          CUTOFF_EPOCH=$(date -u -d "$CUTOFF" +%s)
+
+          for ITERATION in $(seq 1 65); do
+            NOW_EPOCH=$(date -u +%s)
+            if [ "$NOW_EPOCH" -ge "$CUTOFF_EPOCH" ]; then
+              echo "Votación finalizada: se detiene el worker."
+              exit 0
+            fi
+
+            echo "=== Actualización $ITERATION/65: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+
+            # Parte siempre desde el main más reciente. Los commits de datos
+            # no disparan este workflow porque data/history no están en paths.
+            git fetch origin main
+            git reset --hard origin/main
+
+            node scripts/fetch-api.mjs
+
+            git add data.json history.json
+            if git diff --cached --quiet; then
+              echo "Sin cambios para guardar."
+            else
+              git commit -m "data: actualizar ranking [skip ci]"
+
+              PUSHED=0
+              for ATTEMPT in 1 2 3; do
+                if git push origin HEAD:main; then
+                  PUSHED=1
+                  break
+                fi
+
+                echo "Push $ATTEMPT falló; sincronizando con main."
+                git pull --rebase origin main || {
+                  git rebase --abort || true
+                  git fetch origin main
+                  git reset --hard origin/main
+                  node scripts/fetch-api.mjs
+                  git add data.json history.json
+                  git commit -m "data: actualizar ranking [skip ci]" || true
+                }
+                sleep $((ATTEMPT * 3))
+              done
+
+              if [ "$PUSHED" -ne 1 ]; then
+                echo "::warning::No se pudo guardar esta medición; el worker reintentará en el siguiente ciclo."
+              fi
+            fi
+
+            if [ "$ITERATION" -lt 65 ]; then
+              sleep 300
+            fi
+          done
+
+  deploy-site:
+    # Los datos se sirven desde main. Pages solo necesita republicarse cuando
+    # cambia el código del sitio o se solicita manualmente.
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment:
+      name: ranking-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v7
 
       - name: Preparar sitio
         run: |
@@ -69,7 +126,7 @@ jobs:
           mkdir -p _site
           cp index.html styles.css app.js insights.js data.json history.json _site/
 
-      - name: Agregar diagnóstico de publicación
+      - name: Agregar diagnóstico
         run: |
           node --input-type=module <<'NODE'
           import {readFileSync,writeFileSync} from 'node:fs';
@@ -86,7 +143,6 @@ jobs:
             snapshots:Array.isArray(history.snapshots)?history.snapshots.length:0
           };
           writeFileSync('_site/health.json',JSON.stringify(health,null,2)+'\n');
-          console.log('Diagnóstico de publicación:', JSON.stringify(health));
           NODE
 
       - name: Configurar Pages
@@ -97,107 +153,8 @@ jobs:
         with:
           path: ./_site
 
-  relay:
-    needs: update
-    if: ${{ always() && needs.update.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 7
-
-    steps:
-      - name: Mantener cadena de actualización
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          CUTOFF="2026-10-11T03:05:00Z"
-          NOW_EPOCH=$(date -u +%s)
-          CUTOFF_EPOCH=$(date -u -d "$CUTOFF" +%s)
-          if [ "$NOW_EPOCH" -ge "$CUTOFF_EPOCH" ]; then
-            echo "Votación finalizada: no se programa otro relevo."
-            exit 0
-          fi
-
-          # El resto del workflow añade algunos segundos; 270 s deja el ciclo
-          # de lectura de datos cerca de 5 minutos de inicio a inicio.
-          echo "Próxima actualización en aproximadamente 5 minutos."
-          sleep 270
-
-          # Evita duplicar un relevo si apareció otra ejecución mientras esperábamos.
-          NOW_EPOCH=$(date -u +%s)
-          RUNS=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=20")
-          ACTIVE=$(printf '%s' "$RUNS" | jq --arg current "$GITHUB_RUN_ID" '[
-            .workflow_runs[]
-            | select(.name == "Actualizar ranking")
-            | select((.id|tostring) != $current)
-            | select(
-                .status == "queued" or
-                .status == "in_progress" or
-                .status == "waiting" or
-                .status == "pending" or
-                .status == "requested"
-              )
-          ] | length')
-
-          if [ "$ACTIVE" -gt 0 ]; then
-            echo "Ya existe otra ejecución activa; no se duplica el relevo."
-            exit 0
-          fi
-
-          HTTP_CODE=""
-          for ATTEMPT in 1 2 3 4; do
-            HTTP_CODE=$(curl -sS --connect-timeout 5 --max-time 20 -o /tmp/relay-response.txt -w "%{http_code}" -L -X POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/update-ranking.yml/dispatches" \
-              -d '{"ref":"main"}' || true)
-
-            if [ "$HTTP_CODE" = "204" ]; then
-              echo "Relevo enviado correctamente en intento $ATTEMPT."
-              exit 0
-            fi
-
-            echo "Intento $ATTEMPT falló con HTTP $HTTP_CODE."
-            cat /tmp/relay-response.txt || true
-            if [ "$ATTEMPT" -lt 4 ]; then
-              sleep $((ATTEMPT * 5))
-            fi
-          done
-
-          echo "::warning::No se pudo enviar el relevo tras 4 intentos (último HTTP $HTTP_CODE). El cron de respaldo recuperará la cadena."
-          exit 0
-
-  deploy:
-    needs: update
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment:
-      name: ranking-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    # Nunca se cancela la publicación por diferencias entre github.sha y main:
-    # los datos actualizados se generan dentro del propio job update.
-    steps:
-      - name: Publicar los datos ya preparados
+      - name: Publicar sitio
         id: deployment
-        uses: actions/deploy-pages@v5
-        with:
-          timeout: 240000
-
-  deploy-retry:
-    needs: [update, deploy]
-    if: ${{ always() && needs.update.result == 'success' && needs.deploy.result == 'failure' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment:
-      name: ranking-pages
-
-    steps:
-      - name: Esperar antes de reintentar Pages
-        run: sleep 20
-
-      - name: Reintentar publicación
         uses: actions/deploy-pages@v5
         with:
           timeout: 240000
