@@ -34,6 +34,8 @@ let latestData = null;
 const DEFAULT_EXTRA_WINDOWS = [6,12,24];
 const OPTIONAL_WINDOWS = [0.5,...Array.from({length:23},(_,i)=>i+2)];
 let extraWindows = loadExtraWindows();
+const CHOIR_SELECTION_KEY = "ranking-chart-choirs-v2";
+let chartSelectionsByLevel = loadSavedChoirSelections();
 let chartSelectedNames = new Set();
 let chartSelectionLevel = "";
 let gainFromMs = null;
@@ -130,31 +132,73 @@ function initWindowPicker(){
   });
 }
 
+function loadSavedChoirSelections(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(CHOIR_SELECTION_KEY)||"{}");
+    if(!parsed||Array.isArray(parsed)||typeof parsed!=="object")return {};
+    return Object.fromEntries(Object.entries(parsed)
+      .filter(([level,names])=>typeof level==="string"&&Array.isArray(names))
+      .map(([level,names])=>[level,[...new Set(names.filter(name=>typeof name==="string"))]]));
+  }catch{return {};}
+}
+function saveChoirSelection(){
+  chartSelectionsByLevel[selected]=[...chartSelectedNames];
+  try{localStorage.setItem(CHOIR_SELECTION_KEY,JSON.stringify(chartSelectionsByLevel));}catch{}
+}
 function chartGroups(){
-  return selected==="General" ? [...currentGroups] : currentGroups.filter(g=>g.level===selected);
+  return selected==="General"?[...currentGroups]:currentGroups.filter(g=>g.level===selected);
 }
 function ensureChartSelection(){
-  const groups=chartGroups().sort((x,y)=>(y.votes||0)-(x.votes||0));
+  const groups=chartGroups().sort((x,y)=>(Number(y.votes)||0)-(Number(x.votes)||0));
+  const valid=new Set(groups.map(g=>g.name));
   if(chartSelectionLevel!==selected){
     chartSelectionLevel=selected;
-    chartSelectedNames=new Set(groups.slice(0,4).map(g=>g.name));
+    const saved=chartSelectionsByLevel[selected];
+    chartSelectedNames=new Set((Array.isArray(saved)?saved:groups.slice(0,4).map(g=>g.name)).filter(name=>valid.has(name)));
   }else{
-    const valid=new Set(groups.map(g=>g.name));
     chartSelectedNames=new Set([...chartSelectedNames].filter(name=>valid.has(name)));
-    if(!chartSelectedNames.size){
-      chartSelectedNames=new Set(groups.slice(0,4).map(g=>g.name));
-    }
   }
+}
+function chartChoirPickerMarkup(){
+  ensureChartSelection();
+  const groups=chartGroups().sort((x,y)=>(Number(y.votes)||0)-(Number(x.votes)||0));
+  const visible=groups.filter(g=>chartSelectedNames.has(g.name));
+  const available=groups.filter(g=>!chartSelectedNames.has(g.name));
+  return `
+    <div class="choir-pick-controls">
+      <div class="chart-choir-chips">
+        ${visible.length?visible.map(g=>`
+          <button type="button" class="window-chip choir-chip" data-remove-choir="${esc(g.name)}"
+            title="Quitar ${esc(g.name)}" aria-label="Quitar ${esc(g.name)}">
+            ${esc(g.name)} <span aria-hidden="true">×</span>
+          </button>`).join(""):`<span class="choir-pick-empty">No hay coros seleccionados</span>`}
+      </div>
+      <select data-add-choir aria-label="Agregar un coro al gráfico" ${available.length?"":"disabled"}>
+        <option value="">Agregar coro…</option>
+        ${available.map(g=>`<option value="${esc(g.name)}">${esc(g.name)}</option>`).join("")}
+      </select>
+    </div>`;
 }
 function renderChartChoirs(){
   if(!chartChoirs)return;
+  chartChoirs.innerHTML=chartChoirPickerMarkup();
+}
+function changeChoirSelection(name,show){
   ensureChartSelection();
-  const groups=chartGroups().sort((x,y)=>(y.votes||0)-(x.votes||0));
-  chartChoirs.innerHTML=groups.map(g=>`
-    <label class="chart-choir-option">
-      <input type="checkbox" value="${esc(g.name)}" ${chartSelectedNames.has(g.name)?"checked":""}>
-      <span>${esc(g.name)}</span>
-    </label>`).join("");
+  if(!chartGroups().some(g=>g.name===name))return;
+  if(show)chartSelectedNames.add(name);
+  else chartSelectedNames.delete(name);
+  saveChoirSelection();
+  renderChart();
+  renderDailyGain();
+}
+function handleChoirSelectionClick(event){
+  const button=event.target.closest("[data-remove-choir]");
+  if(button)changeChoirSelection(button.dataset.removeChoir,false);
+}
+function handleChoirSelectionChange(event){
+  const select=event.target.closest("[data-add-choir]");
+  if(select?.value)changeChoirSelection(select.value,true);
 }
 function chartSnapshots(){
   if(!historySnapshots.length)return [];
@@ -288,6 +332,13 @@ function renderChart(){
   const palette=["#2563eb","#16a34a","#d97706","#9333ea","#dc2626","#0891b2"];
   const gains=chartVoteGains();
 
+  if(!chartSelectedNames.size){
+    chartCanvas.innerHTML="";
+    chartEmpty.hidden=false;
+    chartEmpty.textContent="Agrega al menos un coro para mostrar este gráfico.";
+    return;
+  }
+
   if(type==="gain"){
     if(!gains.length){
       chartCanvas.innerHTML="";
@@ -370,22 +421,11 @@ function renderChart(){
 function initCharts(){
   chartType?.addEventListener("change",renderChart);
   chartPeriod?.addEventListener("change",renderChart);
-  chartChoirs?.addEventListener("change",event=>{
-    const input=event.target.closest('input[type="checkbox"]');
-    if(!input)return;
-    if(input.checked){
-      if(chartSelectedNames.size>=6){
-        input.checked=false;
-        return;
-      }
-      chartSelectedNames.add(input.value);
-    }else{
-      chartSelectedNames.delete(input.value);
-    }
-    renderChart();
-  });
+  chartChoirs?.addEventListener("click",handleChoirSelectionClick);
+  chartChoirs?.addEventListener("change",handleChoirSelectionChange);
+  dailyGainPanel?.addEventListener("click",handleChoirSelectionClick);
+  dailyGainPanel?.addEventListener("change",handleChoirSelectionChange);
 }
-
 
 function santiagoParts(ms){
   const parts=new Intl.DateTimeFormat("en-CA",{
@@ -479,7 +519,7 @@ function baselineVoteAt(name,targetMs){
 function dailyGainRows(){
   const {firstMs,lastMs}=historyTimeBounds();
   const targetMs=gainMode==="total"?null:gainStartMs();
-  const rows=selectedGroups().map(g=>{
+  const rows=selectedGroups().filter(g=>chartSelectedNames.has(g.name)).map(g=>{
     const current=Number(g.votes);
     const base=gainMode==="total"
       ? {value:0,partial:false}
@@ -530,6 +570,7 @@ function wireDailyGainControls(firstMs,lastMs){
 }
 function renderDailyGain(){
   if(!dailyGainPanel)return;
+  ensureChartSelection();
   const {rows,targetMs,firstMs,lastMs,partialCount,missingCount}=dailyGainRows();
   const isTotal=gainMode==="total";
   const hasHistory=Number.isFinite(firstMs)&&Number.isFinite(lastMs);
@@ -569,16 +610,21 @@ function renderDailyGain(){
       </label>
       <button type="button" id="gainFromStart" ${atFirst?"disabled":""}>Primer registro</button>`:""}
     </div>`;
+  const choirControls=`
+    <div class="daily-gain-choirs">
+      <div class="chart-section-label">Coros visibles · puedes agregar o quitar</div>
+      ${chartChoirPickerMarkup()}
+    </div>`;
 
   if(!isTotal&&!hasHistory){
-    dailyGainPanel.innerHTML=header+controls+
+    dailyGainPanel.innerHTML=header+controls+choirControls+
       '<div class="daily-gain-empty">No hay historial suficiente. Selecciona “Todos los votos (total)”.</div>';
     wireDailyGainControls(firstMs,lastMs);
     return;
   }
   if(!rows.length){
-    dailyGainPanel.innerHTML=header+controls+
-      '<div class="daily-gain-empty">No hay coros en esta categoría.</div>';
+    dailyGainPanel.innerHTML=header+controls+choirControls+
+      (chartGroups().length?'<div class="daily-gain-empty">Agrega coros con el selector para mostrarlos.</div>':'<div class="daily-gain-empty">No hay coros en esta categoría.</div>');
     wireDailyGainControls(firstMs,lastMs);
     return;
   }
@@ -603,7 +649,7 @@ function renderDailyGain(){
     ?"Votos totales actuales: incluye los votos anteriores a nuestro primer registro. No se resta ninguna medición."
     :`Ganancias calculadas únicamente con mediciones disponibles. ${partialCount?`* En ${partialCount} coro(s) nuevos se usa su primer dato posterior como base, sin suponer cero votos anteriores.`:""} ${missingCount?`Hay ${missingCount} coro(s) sin datos históricos comparables.`:""}`;
 
-  dailyGainPanel.innerHTML=header+controls+`
+  dailyGainPanel.innerHTML=header+controls+choirControls+`
     <div class="daily-gain-bars" role="img" aria-label="${esc(isTotal?"Votos totales por coro":"Votos ganados por coro desde fecha elegida")}">
       ${bars}
     </div>

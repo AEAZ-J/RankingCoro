@@ -715,3 +715,65 @@ a{color:inherit}
 }
 
 .daily-gain-controls select{max-width:100%;cursor:pointer}
+
+
+/* Coros visibles compartidos en ambos gráficos */
+.choir-pick-controls{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.chart-choir-chips{
+  display:flex;
+  align-items:center;
+  flex:1 1 270px;
+  flex-wrap:wrap;
+  gap:6px;
+  min-width:0;
+}
+.choir-chip{
+  max-width:100%;
+  height:auto;
+  padding:7px 9px;
+  border-radius:999px;
+  text-align:left;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.25;
+  cursor:pointer;
+}
+.choir-chip span{font-weight:900;padding-left:4px}
+.choir-pick-controls select{
+  flex:0 1 200px;
+  max-width:100%;
+  min-width:160px;
+  min-height:35px;
+  padding:6px 8px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  color:var(--text);
+  background:var(--surface);
+  font:inherit;
+  font-size:.76rem;
+  cursor:pointer;
+}
+.choir-pick-controls select:disabled{opacity:.5;cursor:default}
+.choir-pick-empty{color:var(--muted);font-size:.74rem}
+.daily-gain-choirs{
+  margin:0 0 14px;
+  padding:10px;
+  border:1px solid var(--border-soft);
+  border-radius:11px;
+  background:var(--surface-2);
+}
+.daily-gain-choirs .chart-section-label{margin:0 0 9px}
+@media(max-width:700px){
+  .choir-pick-controls{align-items:stretch;gap:8px}
+  .chart-choir-chips{flex-basis:100%}
+  .choir-chip{font-size:.68rem;padding:6px 8px}
+  .choir-pick-controls select{flex:1 1 100%;width:100%;max-width:100%;font-size:.72rem}
+  .daily-gain-choirs{padding:8px}
+}
