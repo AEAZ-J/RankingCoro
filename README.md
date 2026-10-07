@@ -7,7 +7,7 @@ Ranking de la votación pública de **Juntos Suena Mejor**, con vista general y 
 - La fuente es la API pública de la primera ronda:
   `https://app.juntossuenamejor.cl/api/voting/choirs?round_code=first`
 - GitHub Actions consulta la API y publica el sitio en GitHub Pages.
-- El workflow intenta actualizar aproximadamente cada 5 minutos mediante relevos y cuenta con un cron de respaldo cada 15 minutos. GitHub puede retrasar las ejecuciones programadas.
+- El workflow ejecuta una única actualización programada cada 5 minutos, sin relevos encadenados, y serializa las publicaciones para evitar solapamientos. GitHub puede retrasar las ejecuciones programadas.
 - La página consulta `data.json` y `history.json` cada minuto para detectar una publicación nueva.
 - `history.json` conserva hasta 30 días de mediciones y permite calcular votos sumados en 1h, 6h, 12h y 24h.
 - Si la API falla, se intenta conservar el último dato válido ya publicado.
