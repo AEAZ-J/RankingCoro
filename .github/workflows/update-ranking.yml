@@ -82,8 +82,8 @@ jobs:
           path: ./_site
 
   relay:
-    needs: deploy
-    if: ${{ always() && needs.deploy.result == 'success' }}
+    needs: update
+    if: ${{ always() && needs.update.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 7
 
@@ -172,6 +172,23 @@ jobs:
     steps:
       - name: Publicar los datos ya preparados
         id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 240000
+
+  deploy-retry:
+    needs: [update, deploy]
+    if: ${{ always() && needs.update.result == 'success' && needs.deploy.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: ranking-pages
+
+    steps:
+      - name: Esperar antes de reintentar Pages
+        run: sleep 20
+
+      - name: Reintentar publicación
         uses: actions/deploy-pages@v4
         with:
           timeout: 240000
