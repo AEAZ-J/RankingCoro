@@ -102,6 +102,26 @@ jobs:
           mkdir -p _site
           cp index.html styles.css app.js insights.js data.json history.json _site/
 
+      - name: Agregar diagnóstico de publicación
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const data=JSON.parse(readFileSync('_site/data.json','utf8'));
+          const history=JSON.parse(readFileSync('_site/history.json','utf8'));
+          const health={
+            deployedFromWorkflowAt:new Date().toISOString(),
+            githubRunId:process.env.GITHUB_RUN_ID||null,
+            githubRunAttempt:process.env.GITHUB_RUN_ATTEMPT||null,
+            sourceUpdatedAt:data.updatedAt||null,
+            lastAttemptAt:data.lastAttemptAt||null,
+            stale:Boolean(data.stale),
+            error:data.stale?(data.error||'Datos no actualizados'):null,
+            snapshots:Array.isArray(history.snapshots)?history.snapshots.length:0
+          };
+          writeFileSync('_site/health.json',JSON.stringify(health,null,2)+'\n');
+          console.log('Diagnóstico de publicación:', JSON.stringify(health));
+          NODE
+
       - name: Configurar Pages
         uses: actions/configure-pages@v5
 
@@ -113,7 +133,7 @@ jobs:
   deploy:
     needs: update
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 5
     concurrency:
       group: ranking-pages-deploy-current
       cancel-in-progress: false
@@ -121,25 +141,11 @@ jobs:
       name: ranking-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
+    # Nunca se cancela la publicación por diferencias entre github.sha y main:
+    # los datos actualizados se generan dentro del propio job update.
     steps:
-      - name: Comprobar si esta ejecución es la versión vigente
-        id: current
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          LATEST_SHA=$(gh api "repos/${{ github.repository }}/git/ref/heads/main" --jq '.object.sha')
-          if [ "$LATEST_SHA" = "${{ github.sha }}" ]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-            echo "La ejecución corresponde al main vigente."
-          else
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Omitiendo publicación antigua (${{ github.sha }}). Main actual: $LATEST_SHA"
-          fi
-
-      - name: Publicar
-        if: steps.current.outputs.publish == 'true'
+      - name: Publicar los datos ya preparados
         id: deployment
         uses: actions/deploy-pages@v4
         with:
-          timeout: 180000
+          timeout: 240000
