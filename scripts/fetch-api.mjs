@@ -113,6 +113,7 @@ try{
   console.log(`OK: ${groups.length} coros cargados desde API; ${snapshots.length} mediciones históricas`);
 }catch(err){
   console.error(err);
+  console.warn("::warning::API de votación no disponible: se publicarán los últimos votos válidos con aviso de datos desactualizados.");
   let fallback=previous;
   try{ fallback=await loadPublishedData(); }catch{}
   await writeFile(DATA,JSON.stringify({
