@@ -338,8 +338,11 @@ function chartSeries(){
     }).filter(p=>Number.isFinite(p.t)&&Number.isFinite(p.y))
   })).filter(s=>s.points.length>=2);
 }
-function chartTimeLabel(ms){
-  return new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",timeZone:"America/Santiago"}).format(new Date(ms));
+function chartTimeLabel(ms,rangeMs=0){
+  const options=rangeMs>24*60*60*1000
+    ?{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Santiago"}
+    :{hour:"2-digit",minute:"2-digit",timeZone:"America/Santiago"};
+  return new Intl.DateTimeFormat("es-CL",options).format(new Date(ms));
 }
 function renderChart(){
   if(!chartCanvas||!chartEmpty)return;
@@ -415,7 +418,7 @@ function renderChart(){
   const xTicks=[0,.25,.5,.75,1].map(r=>{
     const tt=minT+r*(maxT-minT);
     const xx=x(tt);
-    return `<text x="${xx}" y="${height-14}" text-anchor="middle" class="chart-axis-label">${chartTimeLabel(tt)}</text>`;
+    return `<text x="${xx}" y="${height-14}" text-anchor="middle" class="chart-axis-label">${chartTimeLabel(tt,maxT-minT)}</text>`;
   }).join("");
   const lines=series.map((s,i)=>{
     const points=s.points.map(p=>`${x(p.t).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
@@ -429,12 +432,77 @@ function renderChart(){
   chartCanvas.innerHTML=`
     ${gainsHtml}
     <div class="chart-legend">${legend}</div>
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfico histórico">
-      ${yTicks}
-      ${xTicks}
-      ${lines}
-    </svg>`;
+    <div class="chart-plot">
+      <svg viewBox="0 0 ${width} ${height}" role="img" tabindex="0"
+        aria-label="Gráfico histórico. Toca una línea o usa las flechas para consultar sus valores.">
+        ${yTicks}
+        ${xTicks}
+        ${lines}
+        <circle class="chart-focus-dot" cx="0" cy="0" r="5" hidden/>
+      </svg>
+      <div class="chart-point-tooltip" role="tooltip" hidden></div>
+    </div>`;
+  initChartTooltip(series,{width,height,pad,x,y,type});
 }
+
+function chartTimeFull(ms){
+  return new Intl.DateTimeFormat("es-CL",{
+    day:"2-digit",month:"short",year:"numeric",
+    hour:"2-digit",minute:"2-digit",timeZone:"America/Santiago"
+  }).format(new Date(ms));
+}
+function initChartTooltip(series,options){
+  const svg=chartCanvas?.querySelector(".chart-plot svg");
+  const tooltip=chartCanvas?.querySelector(".chart-point-tooltip");
+  const focus=svg?.querySelector(".chart-focus-dot");
+  if(!svg||!tooltip||!focus)return;
+  const {width,height,pad,x,y,type}=options;
+  const palette=["#2563eb","#16a34a","#d97706","#9333ea","#dc2626","#0891b2"];
+  const points=series.flatMap((item,i)=>item.points.map(point=>({
+    name:item.name,point,color:palette[i%palette.length]
+  })));
+  if(!points.length)return;
+  let index=0;
+  const hide=()=>{tooltip.hidden=true;focus.setAttribute("hidden","");};
+  const show=(clientX,clientY)=>{
+    const rect=svg.getBoundingClientRect();
+    if(!rect.width||!rect.height)return;
+    const xx=(clientX-rect.left)*width/rect.width;
+    const yy=(clientY-rect.top)*height/rect.height;
+    if(xx<pad.l-10||xx>width-pad.r+10){hide();return;}
+    let bestIndex=-1,score=Infinity;
+    for(let i=0;i<points.length;i++){
+      const p=points[i].point;
+      const distance=Math.abs(x(p.t)-xx)+.46*Math.abs(y(p.y)-yy);
+      if(distance<score){score=distance;bestIndex=i;}
+    }
+    if(bestIndex<0)return;
+    index=bestIndex;
+    const {name,point,color}=points[index];
+    const value=type==="rank"?"#"+n(point.y):
+      type==="new"||type==="gap"?deltaText(point.y):n(point.y)+" votos";
+    tooltip.innerHTML=`<strong>${esc(name)}</strong><span>${esc(value)}</span><small>${esc(chartTimeFull(point.t))}</small>`;
+    tooltip.style.left=`${Math.min(86,Math.max(15,x(point.t)/width*100))}%`;
+    tooltip.style.top=`${Math.max(15,y(point.y)/height*100)}%`;
+    tooltip.hidden=false;
+    focus.setAttribute("cx",String(x(point.t)));
+    focus.setAttribute("cy",String(y(point.y)));
+    focus.setAttribute("fill",color);
+    focus.removeAttribute("hidden");
+  };
+  svg.addEventListener("pointermove",event=>show(event.clientX,event.clientY));
+  svg.addEventListener("pointerdown",event=>show(event.clientX,event.clientY));
+  svg.addEventListener("pointerleave",hide);
+  svg.addEventListener("keydown",event=>{
+    if(event.key!=="ArrowRight"&&event.key!=="ArrowLeft")return;
+    event.preventDefault();
+    index=(index+(event.key==="ArrowRight"?1:points.length-1))%points.length;
+    const rect=svg.getBoundingClientRect();
+    show(rect.left+x(points[index].point.t)/width*rect.width,
+         rect.top+y(points[index].point.y)/height*rect.height);
+  });
+}
+
 function initCharts(){
   chartType?.addEventListener("change",renderChart);
   chartPeriod?.addEventListener("change",renderChart);
