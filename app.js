@@ -9,7 +9,7 @@ const FALLBACK_BAR_COLOR = "#64748b";
 const FALLBACK_DATA = "data.json";
 const HISTORY_DATA = "history.json";
 const REFRESH_MS = 60 * 1000;
-const DELAY_WARNING_MS = 12 * 60 * 1000;
+const DELAY_WARNING_MS = 8 * 60 * 1000;
 
 const rankings = document.querySelector("#rankings");
 const choirSearchInput = document.querySelector("#choirSearch");
@@ -1471,10 +1471,17 @@ function updateStatus(data){
     const seconds=totalSeconds%60;
     intervalText=` · intervalo: ${minutes}m ${String(seconds).padStart(2,"0")}s`;
   }
+  const attemptMs=Date.parse(data.lastAttemptAt||"");
+  const lastFailedAttempt=data.stale&&Number.isFinite(attemptMs)
+    ? " · último intento fallido: "+new Intl.DateTimeFormat("es-CL",{
+        hour:"2-digit",minute:"2-digit",timeZone:"America/Santiago"
+      }).format(new Date(attemptMs))
+    : "";
   updatedEl.textContent=dt&&!Number.isNaN(dt.valueOf())
     ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)
-      +(Number.isFinite(ageMs)?" · hace "+(ageMs<60000?"menos de 1 min":Math.floor(ageMs/60000)+" min"):"")+intervalText
-    : "Hora no disponible";
+      +(Number.isFinite(ageMs)?" · hace "+(ageMs<60000?"menos de 1 min":Math.floor(ageMs/60000)+" min"):"")
+      +lastFailedAttempt+intervalText
+    : "Hora no disponible"+lastFailedAttempt;
   dot.className="dot "+(stale?"stale":"live");
   statusEl.textContent=data.stale
     ?"Último dato disponible"
