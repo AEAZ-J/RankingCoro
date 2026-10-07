@@ -57,6 +57,7 @@ let gainUntilMs = null;
 let gainWindowHours = 6;
 let gainWindowCustom = false;
 let gainWindowDirection = "backward";
+let barPeriodExpanded = true;
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -691,8 +692,120 @@ function setBarQuickEnd(preset){
   gainMode="window";
   renderDailyGain();
 }
+
+function drawRoundedBar(ctx,x,y,w,h,radius){
+  if(w<=0)return;
+  const r=Math.min(radius,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+  ctx.fill();
+}
+function drawImageChoirName(ctx,name,x,y,maxWidth){
+  const lines=[],words=String(name).split(/\s+/);
+  let current="";
+  for(const word of words){
+    const proposed=current?current+" "+word:word;
+    if(current&&ctx.measureText(proposed).width>maxWidth){
+      lines.push(current);
+      current=word;
+    }else current=proposed;
+  }
+  if(current)lines.push(current);
+  if(lines.length>2){lines[1]+="…";lines.length=2;}
+  for(let i=0;i<lines.length;i++){
+    let line=lines[i];
+    while(ctx.measureText(line).width>maxWidth&&line.length>2)
+      line=line.slice(0,-2)+"…";
+    ctx.fillText(line,x,y+(i-(lines.length-1)/2)*20);
+  }
+}
+async function shareBarChartImage(){
+  const {rows,interval,targetMs}=barRows();
+  if(!rows.length)return;
+  const button=dailyGainPanel?.querySelector("#shareBarChart");
+  if(button)button.disabled=true;
+  try{
+    const rowH=58,top=180;
+    const canvas=document.createElement("canvas");
+    canvas.width=1200;
+    canvas.height=top+rowH*rows.length+75;
+    const ctx=canvas.getContext("2d");
+    if(!ctx)throw new Error("Canvas no disponible");
+    ctx.fillStyle="#fff";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#111827";
+    ctx.font="bold 32px system-ui,sans-serif";
+    ctx.fillText(`Ranking ${selected}`,55,58);
+    ctx.font="18px system-ui,sans-serif";
+    ctx.fillStyle="#475569";
+    const period=gainMode==="total"?"Total de votos acumulados":
+      gainMode==="window"&&interval
+        ?`${dailyGainDateLabel(interval.fromMs)} — ${dailyGainDateLabel(interval.untilMs)}`:
+        Number.isFinite(targetMs)?`Ganados desde ${dailyGainDateLabel(targetMs)}`:"Historial disponible";
+    ctx.fillText(period,55,95);
+    ctx.fillText(`${rows.length} coros · Juntos Suena Mejor`,55,125);
+    const max=Math.max(1,...rows.map(row=>Math.max(0,Number(row.gain)||0)));
+    rows.forEach((row,index)=>{
+      const yy=top+index*rowH;
+      if(index%2===0){ctx.fillStyle="#f8fafc";ctx.fillRect(45,yy-24,1110,51);}
+      ctx.fillStyle="#64748b";ctx.font="bold 16px system-ui,sans-serif";
+      ctx.fillText(String(index+1).padStart(2,"0"),52,yy+6);
+      ctx.fillStyle="#111827";ctx.font="600 16px system-ui,sans-serif";
+      drawImageChoirName(ctx,row.name,97,yy+5,420);
+      ctx.fillStyle="#e2e8f0";drawRoundedBar(ctx,548,yy-8,425,17,7);
+      const len=Number.isFinite(row.gain)?Math.max(0,row.gain)/max*425:0;
+      ctx.fillStyle=CATEGORY_BAR_COLORS[row.level]||FALLBACK_BAR_COLOR;
+      drawRoundedBar(ctx,548,yy-8,len,17,7);
+      ctx.textAlign="right";ctx.font="bold 18px system-ui,sans-serif";
+      ctx.fillStyle="#111827";
+      const count=Number.isFinite(row.gain)
+        ?(gainMode==="total"?"":row.gain>=0?"+":"")+n(Math.round(row.gain)):"—";
+      ctx.fillText(count+(row.estimated?" ≈":""),1140,yy+8);
+      ctx.textAlign="left";
+    });
+    ctx.fillStyle="#64748b";ctx.font="16px system-ui,sans-serif";
+    ctx.fillText("RankingCoro · aeaz-j.github.io/RankingCoro/",55,canvas.height-28);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
+    if(!blob)throw new Error("Error al crear PNG");
+    const filename=`ranking-${selected.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-")}.png`;
+    let shared=false;
+    if(typeof navigator!=="undefined"&&navigator.share&&typeof File!=="undefined"){
+      const file=new File([blob],filename,{type:"image/png"});
+      if(!navigator.canShare||navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file],title:`Ranking ${selected}`});
+          shared=true;
+        }catch(err){
+          if(err?.name==="AbortError")return;
+        }
+      }
+    }
+    if(!shared){
+      const url=URL.createObjectURL(blob);
+      const anchor=document.createElement("a");
+      anchor.href=url;anchor.download=filename;
+      document.body.appendChild(anchor);
+      anchor.click();anchor.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+  }catch(error){
+    const note=dailyGainPanel?.querySelector(".daily-gain-note");
+    if(note)note.textContent="No se pudo generar la imagen en este navegador. "+note.textContent;
+  }finally{
+    if(button)button.disabled=false;
+  }
+}
+
 function wireDailyGainControls(firstMs,lastMs){
   const mode=dailyGainPanel?.querySelector("#gainMode");
+  dailyGainPanel?.querySelector("#shareBarChart")?.addEventListener("click",shareBarChartImage);
+  const details=dailyGainPanel?.querySelector(".bar-period-details");
+  details?.addEventListener("toggle",()=>{barPeriodExpanded=details.open;});
   const dateInput=dailyGainPanel?.querySelector("#gainFromDate");
   const timeInput=dailyGainPanel?.querySelector("#gainFromTime");
   const reset=dailyGainPanel?.querySelector("#gainFromStart");
@@ -846,10 +959,17 @@ function renderDailyGain(){
     :"";
 
   const controlMarkup=`
-    <div class="daily-gain-controls" aria-label="Configurar el período del gráfico de barras">
+    <div class="bar-top-actions">
       ${modeSelect}
-      ${controls}
-    </div>`;
+      <button id="shareBarChart" type="button" class="bar-share-button" aria-label="Compartir o guardar imagen del gráfico">↗ Compartir imagen</button>
+    </div>
+    ${controls?`
+      <details class="bar-period-details" ${barPeriodExpanded?"open":""}>
+        <summary>Período y hora personalizados <span aria-hidden="true">⌄</span></summary>
+        <div class="daily-gain-controls" aria-label="Configurar el período del gráfico de barras">
+          ${controls}
+        </div>
+      </details>`:""}`;
 
   const levels=[...new Set(rows.map(r=>r.level))].sort(levelSort);
   const colorLegend=selected==="General"?`
