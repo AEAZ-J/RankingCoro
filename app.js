@@ -61,6 +61,8 @@ let gainWindowCustom = false;
 let gainWindowDirection = "backward";
 let barPeriodExpanded = true;
 const rankExpandedLevels = Object.create(null);
+let showAllCategories = false;
+let previousSingleCategory = "Intermedio";
 const RANK_PREFERENCES_KEY = "ranking-expanded-levels-v1";
 const PANEL_PREFERENCES_KEY = "ranking-panel-state-v1";
 const PANEL_SELECTORS = ".chart-panel,.bar-chart-panel,.insight-panel,.window-picker";
@@ -1205,7 +1207,7 @@ function updateCategoryTotal(){
   const groups=selectedGroups();
   const total=groups.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
   const ch=categoryChanges(groups);
-  categoryTotalLabel.textContent=selected==="General" ? "Todos los coros" : selected;
+  categoryTotalLabel.textContent=showAllCategories?"Todas las categorías":selected==="General"?"Todos los coros":selected;
   categoryVoteCount.textContent=`${n(total)} votos`;
   categoryChange.textContent=changeParts(ch).join(" · ");
 }
@@ -1220,17 +1222,27 @@ function applyChoirSearch(){
   const groups=selectedGroups();
   const matches=groups.filter(g=>normalizeSearch(g.name).includes(query));
   const matchingNames=new Set(matches.map(g=>g.name));
-  const section=[...rankings.querySelectorAll(".level")].find(el=>el.dataset.level===selected);
-  section?.classList.toggle("rank-search-active",Boolean(query));
-  section?.querySelectorAll("[data-choir]").forEach(el=>{
-    const matched=!query||matchingNames.has(el.dataset.choir);
-    el.hidden=!matched;
-    el.classList.toggle("search-match",Boolean(query)&&matched);
-  });
+  const sections=[...rankings.querySelectorAll(".level")]
+    .filter(section=>showAllCategories?section.dataset.level!=="General":section.dataset.level===selected);
+  for(const section of sections){
+    section.classList.toggle("rank-search-active",Boolean(query));
+    let hasMatch=false;
+    section.querySelectorAll("[data-choir]").forEach(el=>{
+      const matched=!query||matchingNames.has(el.dataset.choir);
+      el.hidden=!matched;
+      el.classList.toggle("search-match",Boolean(query)&&matched);
+      if(matched)hasMatch=true;
+    });
+    if(showAllCategories){
+      const hide=Boolean(query)&&!hasMatch;
+      section.hidden=hide;
+      section.classList.toggle("hidden-level",hide);
+    }
+  }
   choirSearchClear.hidden=!query;
   choirSearchStatus.textContent=query
-    ? `${matches.length} de ${groups.length} coros encontrados en ${selected}.`
-    :"Busca por nombre dentro de la categoría seleccionada.";
+    ? `${matches.length} de ${groups.length} coros encontrados ${showAllCategories?"en todas las categorías":"en "+selected}.`
+    :showAllCategories?"Busca por nombre en todas las categorías.":"Busca por nombre dentro de la categoría seleccionada.";
   choirSearchEmpty.hidden=!query||matches.length>0;
 }
 function initChoirSearch(){
@@ -1262,14 +1274,10 @@ function initChoirSearch(){
 function updateExpandAllControl(){
   const button=document.querySelector("#expandAllPanels");
   if(!button)return;
-  const rankingSections=[...rankings.querySelectorAll(".level")]
-    .filter(sec=>sec.querySelector("[data-rank-toggle]"));
-  const expanded=rankingSections.length>0 &&
-    rankingSections.every(sec=>sec.classList.contains("rank-expanded"));
-  button.setAttribute("aria-expanded",String(expanded));
-  button.title=expanded?"Mostrar los 3 primeros por categoría":"Mostrar todos los coros";
+  button.setAttribute("aria-expanded",String(showAllCategories));
+  button.title=showAllCategories?"Volver a la categoría seleccionada":"Ver los rankings de todas las categorías";
   const label=document.querySelector("#expandAllLabel");
-  if(label)label.textContent=expanded?"Contraer ranking":"Desplegar ranking completo";
+  if(label)label.textContent=showAllCategories?"Volver al ranking":"Ver todas las categorías";
 }
 function setRankExpansion(level,expanded,persist=true){
   rankExpandedLevels[level]=Boolean(expanded);
@@ -1293,36 +1301,50 @@ function initRankingPanels(){
       !rankExpandedLevels[button.dataset.rankToggle]);
   });
   document.querySelector("#expandAllPanels")?.addEventListener("click",()=>{
-    const expand=document.querySelector("#expandAllPanels").getAttribute("aria-expanded")!=="true";
-    rankings.querySelectorAll(".level").forEach(section=>{
-      setRankExpansion(section.dataset.level,expand,false);
-    });
-    saveRankPreferences();
-    updateExpandAllControl();
+    setAllCategoriesView(!showAllCategories);
   });
   document.addEventListener("toggle",event=>{
-    if(event.target?.matches?.(PANEL_SELECTORS)){
-      savePanelPreferences();
-    }
+    if(event.target?.matches?.(PANEL_SELECTORS))savePanelPreferences();
   },true);
 }
-function chooseLevel(label){
-  selected=label;
-  document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.level===selected));
-  document.querySelectorAll(".level").forEach(sec=>{
-    const hide=sec.dataset.level!==selected;
-    sec.hidden=hide;
-    sec.classList.toggle("hidden-level",hide);
+function refreshVisibleRankings(){
+  document.querySelectorAll(".tabs button").forEach(button=>{
+    const active=!showAllCategories&&button.dataset.level===selected;
+    button.classList.toggle("active",active);
+    button.setAttribute("aria-pressed",String(active));
   });
+  document.querySelectorAll(".level").forEach(section=>{
+    const hide=showAllCategories?section.dataset.level==="General":section.dataset.level!==selected;
+    section.hidden=hide;
+    section.classList.toggle("hidden-level",hide);
+  });
+  updateExpandAllControl();
   updateCategoryTotal();
   renderChart();
   renderDailyGain();
   applyChoirSearch();
   if(typeof window.renderInsights==="function")window.renderInsights();
 }
+function setAllCategoriesView(enabled){
+  if(showAllCategories===enabled)return;
+  if(enabled){
+    previousSingleCategory=selected;
+    selected="General";
+  }else{
+    selected=previousSingleCategory;
+  }
+  showAllCategories=enabled;
+  refreshVisibleRankings();
+}
+function chooseLevel(label){
+  showAllCategories=false;
+  selected=label;
+  previousSingleCategory=label;
+  refreshVisibleRankings();
+}
 function setFilters(levels){
   const labels=["General",...levels];
-  tabs.innerHTML=labels.map(label=>`<button type="button" data-level="${esc(label)}" class="${selected===label?"active":""}">${esc(label)}</button>`).join("");
+  tabs.innerHTML=labels.map(label=>`<button type="button" data-level="${esc(label)}" aria-pressed="${!showAllCategories&&selected===label}" class="${!showAllCategories&&selected===label?"active":""}">${esc(label)}</button>`).join("");
   tabs.querySelectorAll("button").forEach(btn=>btn.addEventListener("click",()=>chooseLevel(btn.dataset.level)));
 }
 function desktopRows(rows,leader,showLevel,moves){
@@ -1364,7 +1386,7 @@ function rankingSection(title,dataLevel,rows,showLevel=false){
   const leader=rows[0]?.votes||0;
   const total=rows.reduce((sum,g)=>sum+(Number(g.votes)||0),0);
   const moves=latestRankMoves(rows);
-  const isHidden=selected!==dataLevel;
+  const isHidden=showAllCategories?dataLevel==="General":selected!==dataLevel;
   const expanded=Boolean(rankExpandedLevels[dataLevel]);
   return `<section class="level ${isHidden?"hidden-level":""} ${expanded?"rank-expanded":""}"
     data-level="${esc(dataLevel)}" ${isHidden?"hidden":""}>
@@ -1413,6 +1435,8 @@ function render(data){
   if(!labels.includes(selected)){
     selected=levels.includes("Intermedio")?"Intermedio":"General";
   }
+  if(!labels.includes(previousSingleCategory))previousSingleCategory=levels.includes("Intermedio")?"Intermedio":"General";
+  if(showAllCategories)selected="General";
   setFilters(levels);
 
   const generalRows=[...groups].sort((a,b)=>(b.votes||0)-(a.votes||0));
