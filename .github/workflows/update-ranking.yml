@@ -3,7 +3,7 @@ name: Actualizar ranking
 on:
   # Respaldo independiente: recupera actualizaciones si se corta el relevo.
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '3-58/5 * * * *'
   workflow_dispatch:
     inputs:
       wait_before_update:
