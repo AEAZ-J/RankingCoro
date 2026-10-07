@@ -84,6 +84,7 @@ jobs:
       - name: Validar archivos
         run: |
           node --check app.js
+          node --check insights.js
           node --check scripts/fetch-api.mjs
           node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('data.json','utf8')); JSON.parse(fs.readFileSync('history.json','utf8'));"
 
