@@ -5,11 +5,6 @@ on:
   schedule:
     - cron: '3-58/5 * * * *'
   workflow_dispatch:
-    inputs:
-      wait_before_update:
-        description: "Esperar 5 minutos antes de leer la API"
-        required: false
-        default: "true"
   push:
     branches:
       - main
@@ -26,62 +21,18 @@ permissions:
   id-token: write
   actions: write
 
+# Una sola ejecución integral a la vez: evita desplegar datos antiguos
+# sobre publicaciones más recientes y no genera ejecuciones encadenadas.
+concurrency:
+  group: ranking-pages-update
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
-    concurrency:
-      group: ${{ github.event_name == 'push' && 'ranking-code-publish' || 'ranking-data-cycle' }}
-      cancel-in-progress: ${{ github.event_name == 'push' }}
+    timeout-minutes: 8
 
     steps:
-      - name: Programar relevo
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          CUTOFF="2026-10-11T03:05:00Z"
-          CUTOFF_EPOCH=$(date -u -d "$CUTOFF" +%s)
-          NOW_EPOCH=$(date -u +%s)
-
-          if [ "$NOW_EPOCH" -ge "$CUTOFF_EPOCH" ]; then
-            echo "Votación finalizada: no se crea otro relevo."
-            exit 0
-          fi
-
-          SUCCESS=0
-          for WAIT in 0 5 15 30; do
-            if [ "$WAIT" -gt 0 ]; then
-              sleep "$WAIT"
-            fi
-
-            HTTP_CODE=$(curl -sS --connect-timeout 5 --max-time 15 -o /tmp/dispatch-response.txt -w "%{http_code}" -L -X POST \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/update-ranking.yml/dispatches" \
-              -d '{"ref":"main","inputs":{"wait_before_update":"true"}}' || true)
-
-            if [ "$HTTP_CODE" = "204" ]; then
-              echo "Relevo creado correctamente."
-              SUCCESS=1
-              break
-            fi
-
-            echo "Intento de relevo falló (HTTP $HTTP_CODE)."
-            cat /tmp/dispatch-response.txt || true
-          done
-
-          if [ "$SUCCESS" -ne 1 ]; then
-            echo "::warning::No se pudo crear el relevo; el watchdog intentará recuperar la cadena."
-          fi
-
-      - name: Mantener cadencia
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.wait_before_update != 'false' }}
-        run: |
-          echo "Esperando 5 minutos antes de la siguiente lectura."
-          sleep 300
-
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
@@ -134,9 +85,6 @@ jobs:
     needs: update
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    concurrency:
-      group: ranking-pages-deploy-current
-      cancel-in-progress: false
     environment:
       name: ranking-pages
       url: ${{ steps.deployment.outputs.page_url }}
