@@ -29,7 +29,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     concurrency:
       group: ${{ github.event_name == 'push' && 'ranking-code-publish' || 'ranking-data-cycle' }}
       cancel-in-progress: ${{ github.event_name == 'push' }}
@@ -55,7 +55,7 @@ jobs:
               sleep "$WAIT"
             fi
 
-            HTTP_CODE=$(curl -sS -o /tmp/dispatch-response.txt -w "%{http_code}" -L -X POST \
+            HTTP_CODE=$(curl -sS --connect-timeout 5 --max-time 15 -o /tmp/dispatch-response.txt -w "%{http_code}" -L -X POST \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
