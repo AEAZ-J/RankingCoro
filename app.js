@@ -37,6 +37,7 @@ let extraWindows = loadExtraWindows();
 let chartSelectedNames = new Set();
 let chartSelectionLevel = "";
 let gainFromMs = null;
+let gainMode = "total";
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -461,140 +462,152 @@ function voteObservationsAround(name,targetMs){
   }
   return {before,after};
 }
+
 function baselineVoteAt(name,targetMs){
   const {before,after}=voteObservationsAround(name,targetMs);
-
   if(before&&after){
-    if(after.t===before.t)return before.value;
+    if(after.t===before.t)return {value:before.value,partial:false};
     const f=Math.max(0,Math.min(1,(targetMs-before.t)/(after.t-before.t)));
-    return before.value+(after.value-before.value)*f;
+    return {value:before.value+(after.value-before.value)*f,partial:false};
   }
-
-  if(before)return before.value;
-
-  // Si el coro aparece por primera vez después del inicio elegido,
-  // se considera 0 antes de su primera aparición para mantener
-  // el ranking completo en el gráfico.
-  if(after&&after.t>targetMs)return 0;
-
-  return 0;
+  if(before)return {value:before.value,partial:false};
+  // Sin medición antes de la fecha: tomar la primera medición posterior.
+  // No asignar cero ni inventar los votos previos.
+  if(after)return {value:after.value,partial:true};
+  return {value:null,partial:true};
 }
 function dailyGainRows(){
-  const targetMs=gainStartMs();
-  const {lastMs}=historyTimeBounds();
-  if(!Number.isFinite(targetMs)||!Number.isFinite(lastMs)||!currentGroups.length){
-    return {rows:[],targetMs,lastMs};
-  }
-
-  const rows=currentGroups.map(g=>{
-    const end=Number(g.votes);
-    const start=baselineVoteAt(g.name,targetMs);
-    if(!Number.isFinite(end)||!Number.isFinite(start))return null;
-    return {name:g.name,gain:end-start};
-  }).filter(Boolean).sort((x,y)=>(y.gain-x.gain)||x.name.localeCompare(y.name,"es"));
-
-  return {rows,targetMs,lastMs};
+  const {firstMs,lastMs}=historyTimeBounds();
+  const targetMs=gainMode==="total"?null:gainStartMs();
+  const rows=selectedGroups().map(g=>{
+    const current=Number(g.votes);
+    const base=gainMode==="total"
+      ? {value:0,partial:false}
+      : Number.isFinite(targetMs)
+        ? baselineVoteAt(g.name,targetMs)
+        : {value:null,partial:true};
+    return {
+      name:g.name,
+      gain:Number.isFinite(current)&&Number.isFinite(base.value)?current-base.value:null,
+      partial:base.partial
+    };
+  }).sort((x,y)=>{
+    if(x.gain===null)return y.gain===null?x.name.localeCompare(y.name,"es"):1;
+    if(y.gain===null)return -1;
+    return y.gain-x.gain||x.name.localeCompare(y.name,"es");
+  });
+  return {rows,targetMs,firstMs,lastMs,
+    partialCount:rows.filter(r=>r.partial&&Number.isFinite(r.gain)).length,
+    missingCount:rows.filter(r=>!Number.isFinite(r.gain)).length};
 }
 function wireDailyGainControls(firstMs,lastMs){
+  const modeInput=dailyGainPanel?.querySelector("#gainMode");
   const dateInput=dailyGainPanel?.querySelector("#gainFromDate");
   const timeInput=dailyGainPanel?.querySelector("#gainFromTime");
   const resetButton=dailyGainPanel?.querySelector("#gainFromStart");
-  if(!dateInput||!timeInput)return;
-
+  modeInput?.addEventListener("change",()=>{
+    gainMode=modeInput.value==="gain"?"gain":"total";
+    renderDailyGain();
+  });
+  if(!dateInput||!timeInput||!Number.isFinite(firstMs)||!Number.isFinite(lastMs))return;
   const applySelection=()=>{
     if(!dateInput.value||!timeInput.value)return;
     const [year,month,day]=dateInput.value.split("-").map(Number);
     const [hour,minute]=timeInput.value.split(":").map(Number);
-    const chosen=santiagoLocalToUtcMs(year,month,day,hour,minute,0);
+    const chosen=santiagoLocalToUtcMs(year,month,day,hour,minute);
+    if(!Number.isFinite(chosen))return;
     gainFromMs=Math.max(firstMs,Math.min(lastMs,chosen));
+    gainMode="gain";
     renderDailyGain();
   };
-
   dateInput.addEventListener("change",applySelection);
   timeInput.addEventListener("change",applySelection);
   resetButton?.addEventListener("click",()=>{
     gainFromMs=null;
+    gainMode="gain";
     renderDailyGain();
   });
 }
 function renderDailyGain(){
   if(!dailyGainPanel)return;
+  const {rows,targetMs,firstMs,lastMs,partialCount,missingCount}=dailyGainRows();
+  const isTotal=gainMode==="total";
+  const hasHistory=Number.isFinite(firstMs)&&Number.isFinite(lastMs);
+  const startMs=hasHistory?(Number.isFinite(targetMs)?targetMs:firstMs):null;
+  const dataMs=Date.parse(latestData?.updatedAt);
+  const untilMs=Number.isFinite(dataMs)?dataMs:lastMs;
+  const maxValue=Math.max(1,...rows.map(r=>Number.isFinite(r.gain)?Math.max(0,r.gain):0));
+  const atFirst=!Number.isFinite(gainFromMs);
+  const category=selected==="General"?"Todos los coros":selected;
 
-  const {firstMs,lastMs}=historyTimeBounds();
-  const {rows,targetMs}=dailyGainRows();
-
-  if(!Number.isFinite(firstMs)||!Number.isFinite(lastMs)){
-    dailyGainPanel.innerHTML=`
-      <div class="daily-gain-head">
-        <div>
-          <h2>Ranking completo · votos sumados</h2>
-          <p>Todos los coros</p>
-        </div>
+  const header=`
+    <div class="daily-gain-head">
+      <div>
+        <h2>Gráfico de barras · Ranking ${esc(selected)}</h2>
+        <p>${esc(category)} · ${isTotal?"Total de votos":hasHistory?`Ganados desde ${dailyGainDateLabel(startMs)}`:"Sin datos históricos"}${Number.isFinite(untilMs)?` · actualizado ${dailyGainDateLabel(untilMs)}`:""}</p>
       </div>
-      <div class="daily-gain-empty">Aún no hay suficiente historial para calcular este gráfico.</div>`;
+      <strong>${rows.length} ${rows.length===1?"coro":"coros"}</strong>
+    </div>`;
+
+  const controls=`
+    <div class="daily-gain-controls" aria-label="Elegir votos totales o fecha inicial">
+      <label>
+        <span>Mostrar</span>
+        <select id="gainMode">
+          <option value="total" ${isTotal?"selected":""}>Todos los votos (total)</option>
+          <option value="gain" ${isTotal?"":"selected"}>Votos ganados desde fecha</option>
+        </select>
+      </label>
+      ${!isTotal&&hasHistory?`
+      <label>
+        <span>Desde</span>
+        <input id="gainFromDate" type="date" min="${inputDateValue(firstMs)}" max="${inputDateValue(lastMs)}" value="${inputDateValue(startMs)}">
+      </label>
+      <label>
+        <span>Hora (Chile)</span>
+        <input id="gainFromTime" type="time" step="60" value="${inputTimeValue(startMs)}">
+      </label>
+      <button type="button" id="gainFromStart" ${atFirst?"disabled":""}>Primer registro</button>`:""}
+    </div>`;
+
+  if(!isTotal&&!hasHistory){
+    dailyGainPanel.innerHTML=header+controls+
+      '<div class="daily-gain-empty">No hay historial suficiente. Selecciona “Todos los votos (total)”.</div>';
+    wireDailyGainControls(firstMs,lastMs);
+    return;
+  }
+  if(!rows.length){
+    dailyGainPanel.innerHTML=header+controls+
+      '<div class="daily-gain-empty">No hay coros en esta categoría.</div>';
+    wireDailyGainControls(firstMs,lastMs);
     return;
   }
 
-  const startMs=Number.isFinite(targetMs)?targetMs:firstMs;
-  const maxGain=Math.max(1,...rows.map(r=>Math.max(0,r.gain)));
-  const isDefault=!Number.isFinite(gainFromMs);
+  const bars=rows.map((item,i)=>{
+    const valid=Number.isFinite(item.gain);
+    const value=valid?Math.round(item.gain):null;
+    const width=valid&&item.gain>0?Math.max(1.5,item.gain/maxValue*100):0;
+    const numberText=value===null?"—":(isTotal?"":value>=0?"+":"")+n(value)+(item.partial?" *":"");
+    const desc=item.partial?" · desde su primera medición posterior a la fecha elegida":"";
+    return `
+      <div class="daily-gain-row">
+        <div class="daily-gain-rank">#${i+1}</div>
+        <div class="daily-gain-name" title="${esc(item.name+desc)}">${esc(item.name)}</div>
+        <div class="daily-gain-track">
+          <div class="daily-gain-fill" style="width:${width}%;${width===0?"min-width:0;":""}"></div>
+        </div>
+        <strong class="daily-gain-value" title="${esc(desc)}">${numberText}</strong>
+      </div>`;
+  }).join("");
+  const note=isTotal
+    ?"Votos totales actuales: incluye los votos anteriores a nuestro primer registro. No se resta ninguna medición."
+    :`Ganancias calculadas únicamente con mediciones disponibles. ${partialCount?`* En ${partialCount} coro(s) nuevos se usa su primer dato posterior como base, sin suponer cero votos anteriores.`:""} ${missingCount?`Hay ${missingCount} coro(s) sin datos históricos comparables.`:""}`;
 
-  dailyGainPanel.innerHTML=`
-    <div class="daily-gain-head">
-      <div>
-        <h2>Ranking completo · votos sumados</h2>
-        <p>Desde ${esc(dailyGainDateLabel(startMs))} · hasta ${esc(dailyGainDateLabel(lastMs))}</p>
-      </div>
-      <strong>${rows.length} ${rows.length===1?"coro":"coros"}</strong>
+  dailyGainPanel.innerHTML=header+controls+`
+    <div class="daily-gain-bars" role="img" aria-label="${esc(isTotal?"Votos totales por coro":"Votos ganados por coro desde fecha elegida")}">
+      ${bars}
     </div>
-
-    <div class="daily-gain-controls" aria-label="Elegir fecha y hora de inicio">
-      <label>
-        <span>Desde</span>
-        <input
-          id="gainFromDate"
-          type="date"
-          min="${inputDateValue(firstMs)}"
-          max="${inputDateValue(lastMs)}"
-          value="${inputDateValue(startMs)}"
-        >
-      </label>
-      <label>
-        <span>Hora</span>
-        <input
-          id="gainFromTime"
-          type="time"
-          step="60"
-          value="${inputTimeValue(startMs)}"
-        >
-      </label>
-      <button id="gainFromStart" type="button" ${isDefault?"disabled":""}>Desde el inicio</button>
-    </div>
-
-    <div class="daily-gain-bars" role="img" aria-label="Ranking completo por votos sumados desde la fecha seleccionada">
-      ${rows.map((item,i)=>{
-        const width=Math.max(1.5,Math.max(0,item.gain)/maxGain*100);
-        const gain=Math.round(item.gain);
-        return `
-          <div class="daily-gain-row">
-            <div class="daily-gain-rank">#${i+1}</div>
-            <div class="daily-gain-name" title="${esc(item.name)}">${esc(item.name)}</div>
-            <div class="daily-gain-track">
-              <div class="daily-gain-fill" style="width:${width}%"></div>
-            </div>
-            <strong class="daily-gain-value">${gain>=0?"+":""}${n(gain)}</strong>
-          </div>`;
-      }).join("")}
-    </div>
-
-    <p class="daily-gain-note">
-      ${isDefault
-        ? `Por defecto se usa el primer dato disponible: ${esc(dailyGainDateLabel(firstMs))}.`
-        : `Inicio personalizado: ${esc(dailyGainDateLabel(startMs))}.`
-      }
-      Los coros que aparecieron después de esa fecha se consideran con base 0 antes de su primera aparición.
-    </p>`;
-
+    <p class="daily-gain-note">${esc(note)}</p>`;
   wireDailyGainControls(firstMs,lastMs);
 }
 
