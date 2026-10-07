@@ -111,13 +111,29 @@ jobs:
     timeout-minutes: 4
     concurrency:
       group: ranking-pages-deploy
-      cancel-in-progress: true
+      cancel-in-progress: false
     environment:
       name: ranking-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - name: Comprobar si esta ejecución es la versión vigente
+        id: current
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          LATEST_SHA=$(gh api "repos/${{ github.repository }}/git/ref/heads/main" --jq '.object.sha')
+          if [ "$LATEST_SHA" = "${{ github.sha }}" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "La ejecución corresponde al main vigente."
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Omitiendo publicación antigua (${{ github.sha }}). Main actual: $LATEST_SHA"
+          fi
+
       - name: Publicar
+        if: steps.current.outputs.publish == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
         with:
