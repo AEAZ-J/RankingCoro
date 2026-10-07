@@ -1,28 +1,13 @@
 {
   "source": "https://app.juntossuenamejor.cl/api/voting/choirs?round_code=first",
   "round": "Primera ronda",
-  "updatedAt": "2026-10-07T23:10:16.975Z",
+  "updatedAt": "2026-10-07T23:15:19.898Z",
   "stale": false,
   "groups": [
     {
-      "name": "La Mayor",
+      "name": "Coro CSAH",
       "level": "Avanzado",
-      "votes": 245
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D67",
-      "level": "Intermedio",
-      "votes": 114
-    },
-    {
-      "name": "Coro de Cámara Laurencia Contreras",
-      "level": "Avanzado",
-      "votes": 355
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D1",
-      "level": "Avanzado",
-      "votes": 221
+      "votes": 153
     },
     {
       "name": "Æternum ensamble coral",
@@ -30,34 +15,29 @@
       "votes": 836
     },
     {
-      "name": "Coro Juntos Suena Mejor - D39",
-      "level": "Intermedio",
-      "votes": 10
-    },
-    {
-      "name": "Centro Inclusivo R",
+      "name": "Ñuñosingers",
       "level": "Inicial",
-      "votes": 7
+      "votes": 542
     },
     {
-      "name": "Voz de la Inclusión",
-      "level": "Avanzado",
-      "votes": 131
-    },
-    {
-      "name": "Pulso Vocal",
-      "level": "Inicial",
-      "votes": 47
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D29",
+      "name": "AM de El Bosque",
       "level": "Intermedio",
-      "votes": 340
+      "votes": 408
     },
     {
       "name": "Los Borbotones",
       "level": "Avanzado",
       "votes": 6
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D125",
+      "level": "Intermedio",
+      "votes": 43
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D29",
+      "level": "Intermedio",
+      "votes": 340
     },
     {
       "name": "Coro Sol Andino",
@@ -70,54 +50,14 @@
       "votes": 108
     },
     {
-      "name": "Coro Los de la nota legal",
-      "level": "Inicial",
-      "votes": 131
-    },
-    {
-      "name": "CORO VEDRUNA",
+      "name": "Coro Aitué de La Araucanía",
       "level": "Avanzado",
-      "votes": 168
+      "votes": 1267
     },
     {
-      "name": "Coro nuevos horizontes",
-      "level": "Inicial",
-      "votes": 0
-    },
-    {
-      "name": "Proyecto Hécate",
-      "level": "Avanzado",
-      "votes": 546
-    },
-    {
-      "name": "Juntas para cantar",
+      "name": "Coro Juntos Suena Mejor - D39",
       "level": "Intermedio",
-      "votes": 346
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D86",
-      "level": "Intermedio",
-      "votes": 161
-    },
-    {
-      "name": "Aura Vocal",
-      "level": "Avanzado",
-      "votes": 1357
-    },
-    {
-      "name": "Café del Mar",
-      "level": "Intermedio",
-      "votes": 157
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D132",
-      "level": "Intermedio",
-      "votes": 19
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D60",
-      "level": "Inicial",
-      "votes": 102
+      "votes": 10
     },
     {
       "name": "Coro Juntos Suena Mejor - D44",
@@ -125,34 +65,19 @@
       "votes": 784
     },
     {
-      "name": "Coro CSAH",
-      "level": "Avanzado",
-      "votes": 153
-    },
-    {
-      "name": "Canta con energía",
-      "level": "Avanzado",
-      "votes": 96
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D81",
+      "name": "Coro Los Ángeles",
       "level": "Intermedio",
-      "votes": 12
+      "votes": 51
     },
     {
-      "name": "Celestia Choir",
+      "name": "Coro Juntos Suena Mejor - D67",
       "level": "Intermedio",
-      "votes": 1342
+      "votes": 114
     },
     {
-      "name": "Cuarteto Albores",
-      "level": "Avanzado",
-      "votes": 1847
-    },
-    {
-      "name": "Santiago Gospel",
+      "name": "Coro Juntos Suena Mejor - D86",
       "level": "Intermedio",
-      "votes": 16
+      "votes": 161
     },
     {
       "name": "Coral Metropolitana",
@@ -160,44 +85,14 @@
       "votes": 291
     },
     {
-      "name": "AM de El Bosque",
-      "level": "Intermedio",
-      "votes": 408
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D125",
-      "level": "Intermedio",
-      "votes": 43
-    },
-    {
-      "name": "Aguas de Maule",
+      "name": "Centro Inclusivo R",
       "level": "Inicial",
-      "votes": 612
+      "votes": 7
     },
     {
-      "name": "Coro Los Ángeles",
-      "level": "Intermedio",
-      "votes": 51
-    },
-    {
-      "name": "Coro de profesores de Valparaíso",
+      "name": "Coro de Cámara Laurencia Contreras",
       "level": "Avanzado",
-      "votes": 820
-    },
-    {
-      "name": "Coro Voces en marcha",
-      "level": "Inicial",
-      "votes": 246
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D133",
-      "level": "Inicial",
-      "votes": 1
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D35",
-      "level": "Inicial",
-      "votes": 29
+      "votes": 355
     },
     {
       "name": "Coro libre de cantar",
@@ -205,14 +100,24 @@
       "votes": 326
     },
     {
-      "name": "Ñuñosingers",
-      "level": "Inicial",
-      "votes": 542
+      "name": "Café del Mar",
+      "level": "Intermedio",
+      "votes": 157
     },
     {
-      "name": "Coro Juntos Suena Mejor - D84",
+      "name": "CORO VEDRUNA",
+      "level": "Avanzado",
+      "votes": 168
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D132",
+      "level": "Intermedio",
+      "votes": 19
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D133",
       "level": "Inicial",
-      "votes": 38
+      "votes": 1
     },
     {
       "name": "De la Cordillera al Mar",
@@ -220,19 +125,44 @@
       "votes": 1744
     },
     {
-      "name": "Coro Juntos Suena Mejor - D46",
+      "name": "Pulso Vocal",
       "level": "Inicial",
-      "votes": 30
+      "votes": 47
     },
     {
-      "name": "Coro Juntos Suena Mejor - D61",
-      "level": "Inicial",
-      "votes": 195
+      "name": "Proyecto Hécate",
+      "level": "Avanzado",
+      "votes": 546
     },
     {
-      "name": "Inti jalsu",
+      "name": "Coro Juntos Suena Mejor - D81",
       "level": "Intermedio",
-      "votes": 2018
+      "votes": 12
+    },
+    {
+      "name": "Aura Vocal",
+      "level": "Avanzado",
+      "votes": 1357
+    },
+    {
+      "name": "Coro Voces en marcha",
+      "level": "Inicial",
+      "votes": 246
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D35",
+      "level": "Inicial",
+      "votes": 29
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D60",
+      "level": "Inicial",
+      "votes": 102
+    },
+    {
+      "name": "Cuarteto Albores",
+      "level": "Avanzado",
+      "votes": 1847
     },
     {
       "name": "A viva voz",
@@ -240,39 +170,14 @@
       "votes": 288
     },
     {
-      "name": "Estelares",
-      "level": "Intermedio",
-      "votes": 1972
-    },
-    {
       "name": "Coro Juntos Suena Mejor - D102",
       "level": "Intermedio",
       "votes": 20
     },
     {
-      "name": "Coro Escuela Los Leones",
-      "level": "Inicial",
-      "votes": 159
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D3",
-      "level": "Intermedio",
-      "votes": 401
-    },
-    {
-      "name": "Coro Aitué de La Araucanía",
+      "name": "Voz de la Inclusión",
       "level": "Avanzado",
-      "votes": 1267
-    },
-    {
-      "name": "Octava Nota",
-      "level": "Intermedio",
-      "votes": 2121
-    },
-    {
-      "name": "Coro Juntos Suena Mejor - D143",
-      "level": "Inicial",
-      "votes": 66
+      "votes": 131
     },
     {
       "name": "Coro Juntos Suena Mejor - D59",
@@ -283,6 +188,101 @@
       "name": "UDP STAR",
       "level": "Inicial",
       "votes": 6
+    },
+    {
+      "name": "Coro Escuela Los Leones",
+      "level": "Inicial",
+      "votes": 159
+    },
+    {
+      "name": "Canta con energía",
+      "level": "Avanzado",
+      "votes": 96
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D84",
+      "level": "Inicial",
+      "votes": 38
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D3",
+      "level": "Intermedio",
+      "votes": 401
+    },
+    {
+      "name": "Coro de profesores de Valparaíso",
+      "level": "Avanzado",
+      "votes": 821
+    },
+    {
+      "name": "La Mayor",
+      "level": "Avanzado",
+      "votes": 245
+    },
+    {
+      "name": "Estelares",
+      "level": "Intermedio",
+      "votes": 1972
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D143",
+      "level": "Inicial",
+      "votes": 66
+    },
+    {
+      "name": "Coro nuevos horizontes",
+      "level": "Inicial",
+      "votes": 0
+    },
+    {
+      "name": "Juntas para cantar",
+      "level": "Intermedio",
+      "votes": 346
+    },
+    {
+      "name": "Coro Los de la nota legal",
+      "level": "Inicial",
+      "votes": 131
+    },
+    {
+      "name": "Celestia Choir",
+      "level": "Intermedio",
+      "votes": 1342
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D46",
+      "level": "Inicial",
+      "votes": 30
+    },
+    {
+      "name": "Inti jalsu",
+      "level": "Intermedio",
+      "votes": 2018
+    },
+    {
+      "name": "Santiago Gospel",
+      "level": "Intermedio",
+      "votes": 16
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D1",
+      "level": "Avanzado",
+      "votes": 221
+    },
+    {
+      "name": "Octava Nota",
+      "level": "Intermedio",
+      "votes": 2121
+    },
+    {
+      "name": "Aguas de Maule",
+      "level": "Inicial",
+      "votes": 612
+    },
+    {
+      "name": "Coro Juntos Suena Mejor - D61",
+      "level": "Inicial",
+      "votes": 196
     }
   ]
 }
