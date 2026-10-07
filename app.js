@@ -50,6 +50,7 @@ let gainMode = "total";
 let gainUntilMs = null;
 let gainWindowHours = 6;
 let gainWindowCustom = false;
+let gainWindowDirection = "backward";
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -531,11 +532,15 @@ function baselineVoteAt(name,targetMs){
   return {value:null,partial:true,estimated:false};
 }
 function gainWindowInterval(){
-  const untilMs=gainEndMs();
+  const anchorMs=gainEndMs();
   const durationMs=gainWindowHours*60*60*1000;
+  const valid=Number.isFinite(anchorMs);
+  const forward=gainWindowDirection==="forward";
   return {
-    fromMs:Number.isFinite(untilMs)?untilMs-durationMs:null,
-    untilMs,
+    fromMs:valid?(forward?anchorMs:anchorMs-durationMs):null,
+    untilMs:valid?(forward?anchorMs+durationMs:anchorMs):null,
+    anchorMs,
+    direction:gainWindowDirection,
     durationHours:gainWindowHours
   };
 }
@@ -599,9 +604,13 @@ function parseChileDateTime(dateStr,timeStr){
   return Number.isFinite(converted)?converted:null;
 }
 function setBarQuickEnd(preset){
-  const {lastMs}=historyTimeBounds();
+  const {firstMs,lastMs}=historyTimeBounds();
   if(!Number.isFinite(lastMs))return;
-  if(preset==="last")gainUntilMs=null;
+  if(preset==="last"){
+    gainUntilMs=gainWindowDirection==="forward"
+      ?Math.max(firstMs,lastMs-gainWindowHours*60*60*1000)
+      :null;
+  }
   else if(preset==="today-noon")gainUntilMs=localNoonMs(lastMs,0);
   else if(preset==="yesterday-noon")gainUntilMs=localNoonMs(lastMs,-1);
   else return;
@@ -614,10 +623,19 @@ function wireDailyGainControls(firstMs,lastMs){
   const timeInput=dailyGainPanel?.querySelector("#gainFromTime");
   const reset=dailyGainPanel?.querySelector("#gainFromStart");
   const durationSelect=dailyGainPanel?.querySelector("#gainWindowDuration");
+  const directionSelect=dailyGainPanel?.querySelector("#gainWindowDirection");
   const customHours=dailyGainPanel?.querySelector("#gainWindowCustomHours");
 
   mode?.addEventListener("change",()=>{
     gainMode=["gain","window"].includes(mode.value)?mode.value:"total";
+    renderDailyGain();
+  });
+  directionSelect?.addEventListener("change",()=>{
+    const next=directionSelect.value==="forward"?"forward":"backward";
+    if(next==="forward"&&gainWindowDirection!=="forward"&&!Number.isFinite(gainUntilMs)){
+      gainUntilMs=Math.max(firstMs,lastMs-gainWindowHours*60*60*1000);
+    }
+    gainWindowDirection=next;
     renderDailyGain();
   });
   dateInput?.addEventListener("change",applyDateTime);
@@ -663,6 +681,7 @@ function renderDailyGain(){
   const hasHistory=Number.isFinite(firstMs)&&Number.isFinite(lastMs);
   const fromMs=Number.isFinite(targetMs)?targetMs:firstMs;
   const untilMs=Number.isFinite(interval?.untilMs)?interval.untilMs:lastMs;
+  const anchorMs=Number.isFinite(interval?.anchorMs)?interval.anchorMs:lastMs;
   const dataMs=Date.parse(latestData?.updatedAt);
   const currentMs=Number.isFinite(dataMs)?dataMs:lastMs;
   const maxValue=Math.max(1,...rows.map(r=>Number.isFinite(r.gain)?Math.max(0,r.gain):0));
@@ -688,7 +707,7 @@ function renderDailyGain(){
   const modeOptions=[
     ["total","Todos los votos (total)"],
     ["gain","Ganados desde fecha y hora"],
-    ["window","Ventana de horas hacia atrás"]
+    ["window","Ventana de horas (antes o después)"]
   ];
   const modeSelect=`
     <label>
@@ -702,17 +721,24 @@ function renderDailyGain(){
     ? isWindow
       ?`
         <label>
-          <span>Hasta (fecha)</span>
+          <span>Dirección</span>
+          <select id="gainWindowDirection" aria-label="Contar horas hacia atrás o hacia adelante">
+            <option value="backward" ${gainWindowDirection==="backward"?"selected":""}>Hacia atrás</option>
+            <option value="forward" ${gainWindowDirection==="forward"?"selected":""}>Hacia adelante</option>
+          </select>
+        </label>
+        <label>
+          <span>${gainWindowDirection==="forward"?"Desde (fecha)":"Hasta (fecha)"}</span>
           <input id="gainFromDate" type="date"
             min="${inputDateValue(firstMs)}" max="${inputDateValue(lastMs)}"
-            value="${inputDateValue(untilMs)}">
+            value="${inputDateValue(anchorMs)}">
         </label>
         <label>
           <span>Hora (Chile)</span>
-          <input id="gainFromTime" type="time" step="60" value="${inputTimeValue(untilMs)}">
+          <input id="gainFromTime" type="time" step="60" value="${inputTimeValue(anchorMs)}">
         </label>
         <label>
-          <span>Horas hacia atrás</span>
+          <span>Duración de la ventana</span>
           <select id="gainWindowDuration">
             ${[1,3,6,12,24,48,72,168].map(hr=>`
               <option value="${hr}" ${!gainWindowCustom&&gainWindowHours===hr?"selected":""}>${hr} h</option>`).join("")}
@@ -725,9 +751,9 @@ function renderDailyGain(){
           <input id="gainWindowCustomHours" type="number" min="0.5" max="336" step="0.5"
             value="${gainWindowHours}">
         </label>`:""}
-        <div class="gain-quick-presets" aria-label="Hora final rápida">
-          <span>Hasta:</span>
-          <button type="button" data-gain-preset="last">Último registro</button>
+        <div class="gain-quick-presets" aria-label="Hora de referencia rápida">
+          <span>${gainWindowDirection==="forward"?"Desde:":"Hasta:"}</span>
+          <button type="button" data-gain-preset="last">${gainWindowDirection==="forward"?"Última ventana":"Último registro"}</button>
           <button type="button" data-gain-preset="today-noon">Hoy 12:00</button>
           <button type="button" data-gain-preset="yesterday-noon">Ayer 12:00</button>
         </div>`
@@ -797,6 +823,7 @@ function renderDailyGain(){
   if(isWindow){
     note=`Periodo: ${dailyGainDateLabel(interval.fromMs)} a ${dailyGainDateLabel(interval.untilMs)}. Se comparan los votos en ambos extremos, no los totales actuales.`;
     if(Number.isFinite(firstMs)&&interval.fromMs<firstMs)note+=` La ventana empieza antes del primer registro disponible (`+dailyGainDateLabel(firstMs)+`), por lo que algunos resultados no se pueden calcular.`;
+    if(Number.isFinite(lastMs)&&interval.untilMs>lastMs)note+=` La ventana termina después del último registro disponible (`+dailyGainDateLabel(lastMs)+`), por lo que algunos resultados no se pueden calcular.`;
     if(missingCount)note+=` ${missingCount} coro(s) sin registros suficientes para ambos extremos aparecen como —.`;
   }
   if(estimatedCount)note+=` ≈ ${estimatedCount} valor(es) se estimaron interpolando entre registros.`;
