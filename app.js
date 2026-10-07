@@ -61,6 +61,35 @@ let gainWindowCustom = false;
 let gainWindowDirection = "backward";
 let barPeriodExpanded = true;
 const rankExpandedLevels = Object.create(null);
+const RANK_PREFERENCES_KEY = "ranking-expanded-levels-v1";
+const PANEL_PREFERENCES_KEY = "ranking-panel-state-v1";
+const PANEL_SELECTORS = ".chart-panel,.bar-chart-panel,.insight-panel,.window-picker";
+function readSavedState(key){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(key)||"{}");
+    return parsed && typeof parsed==="object" && !Array.isArray(parsed) ? parsed : {};
+  }catch{return {};}
+}
+Object.assign(rankExpandedLevels,readSavedState(RANK_PREFERENCES_KEY));
+function saveRankPreferences(){
+  try{localStorage.setItem(RANK_PREFERENCES_KEY,JSON.stringify(rankExpandedLevels));}catch{}
+}
+function restorePanelPreferences(){
+  const stored=readSavedState(PANEL_PREFERENCES_KEY);
+  document.querySelectorAll(PANEL_SELECTORS).forEach(panel=>{
+    const id=panel.id || (panel.classList.contains("chart-panel")?"chart-panel":"");
+    if(id && typeof stored[id]==="boolean")panel.open=stored[id];
+  });
+}
+function savePanelPreferences(){
+  const state={};
+  document.querySelectorAll(PANEL_SELECTORS).forEach(panel=>{
+    const id=panel.id || (panel.classList.contains("chart-panel")?"chart-panel":"");
+    if(id)state[id]=panel.open;
+  });
+  try{localStorage.setItem(PANEL_PREFERENCES_KEY,JSON.stringify(state));}catch{}
+}
+
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -1233,19 +1262,16 @@ function initChoirSearch(){
 function updateExpandAllControl(){
   const button=document.querySelector("#expandAllPanels");
   if(!button)return;
-  const nativePanels=[...document.querySelectorAll(
-    ".chart-panel,.bar-chart-panel,.insight-panel,.window-picker"
-  )];
   const rankingSections=[...rankings.querySelectorAll(".level")]
     .filter(sec=>sec.querySelector("[data-rank-toggle]"));
-  const expanded=nativePanels.every(panel=>panel.open)&&
+  const expanded=rankingSections.length>0 &&
     rankingSections.every(sec=>sec.classList.contains("rank-expanded"));
   button.setAttribute("aria-expanded",String(expanded));
-  button.title=expanded?"Contraer todas las secciones":"Desplegar todas las secciones";
+  button.title=expanded?"Mostrar los 3 primeros por categoría":"Mostrar todos los coros";
   const label=document.querySelector("#expandAllLabel");
-  if(label)label.textContent=expanded?"Contraer todo":"Desplegar todo";
+  if(label)label.textContent=expanded?"Contraer ranking":"Desplegar ranking completo";
 }
-function setRankExpansion(level,expanded){
+function setRankExpansion(level,expanded,persist=true){
   rankExpandedLevels[level]=Boolean(expanded);
   const section=[...rankings.querySelectorAll(".level")].find(sec=>sec.dataset.level===level);
   section?.classList.toggle("rank-expanded",Boolean(expanded));
@@ -1256,30 +1282,30 @@ function setRankExpansion(level,expanded){
     const label=button.querySelector(".rank-more-label");
     if(label)label.textContent=expanded?"Mostrar los 3 primeros":"Mostrar el resto";
   }
+  if(persist)saveRankPreferences();
   updateExpandAllControl();
 }
 function initRankingPanels(){
+  restorePanelPreferences();
   rankings?.addEventListener("click",event=>{
     const button=event.target.closest("[data-rank-toggle]");
     if(button)setRankExpansion(button.dataset.rankToggle,
       !rankExpandedLevels[button.dataset.rankToggle]);
   });
   document.querySelector("#expandAllPanels")?.addEventListener("click",()=>{
-    const button=document.querySelector("#expandAllPanels");
-    const expand=button.getAttribute("aria-expanded")!=="true";
-    document.querySelectorAll(".chart-panel,.bar-chart-panel,.insight-panel,.window-picker")
-      .forEach(panel=>{panel.open=expand;});
+    const expand=document.querySelector("#expandAllPanels").getAttribute("aria-expanded")!=="true";
     rankings.querySelectorAll(".level").forEach(section=>{
-      setRankExpansion(section.dataset.level,expand);
+      setRankExpansion(section.dataset.level,expand,false);
     });
+    saveRankPreferences();
     updateExpandAllControl();
   });
   document.addEventListener("toggle",event=>{
-    if(event.target?.matches?.(".chart-panel,.bar-chart-panel,.insight-panel,.window-picker"))
-      updateExpandAllControl();
+    if(event.target?.matches?.(PANEL_SELECTORS)){
+      savePanelPreferences();
+    }
   },true);
 }
-
 function chooseLevel(label){
   selected=label;
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.level===selected));
@@ -1422,7 +1448,8 @@ function updateStatus(data){
     intervalText=` · intervalo: ${minutes}m ${String(seconds).padStart(2,"0")}s`;
   }
   updatedEl.textContent=dt&&!Number.isNaN(dt.valueOf())
-    ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)+intervalText
+    ? "Actualizado: "+new Intl.DateTimeFormat("es-CL",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Santiago"}).format(dt)
+      +(Number.isFinite(ageMs)?" · hace "+(ageMs<60000?"menos de 1 min":Math.floor(ageMs/60000)+" min"):"")+intervalText
     : "Hora no disponible";
   dot.className="dot "+(stale?"stale":"live");
   statusEl.textContent=data.stale
