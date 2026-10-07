@@ -8,10 +8,14 @@ const CATEGORY_BAR_COLORS = {
 const FALLBACK_BAR_COLOR = "#64748b";
 const FALLBACK_DATA = "data.json";
 const HISTORY_DATA = "history.json";
-const REFRESH_MS = 15000;
+const REFRESH_MS = 60 * 1000;
 const DELAY_WARNING_MS = 12 * 60 * 1000;
 
 const rankings = document.querySelector("#rankings");
+const choirSearchInput = document.querySelector("#choirSearch");
+const choirSearchClear = document.querySelector("#choirSearchClear");
+const choirSearchStatus = document.querySelector("#choirSearchStatus");
+const choirSearchEmpty = document.querySelector("#choirSearchEmpty");
 const tabs = document.querySelector("#tabs");
 const statusEl = document.querySelector("#status");
 const updatedEl = document.querySelector("#updated");
@@ -38,6 +42,8 @@ let lastSignature = "";
 let currentGroups = [];
 let historySnapshots = [];
 let latestData = null;
+let lastHistorySourceAt = null;
+let loadingPromise = null;
 const DEFAULT_EXTRA_WINDOWS = [6,12,24];
 const OPTIONAL_WINDOWS = [0.5,...Array.from({length:23},(_,i)=>i+2)];
 let extraWindows = loadExtraWindows();
@@ -959,6 +965,38 @@ function updateCategoryTotal(){
   categoryVoteCount.textContent=`${n(total)} votos`;
   categoryChange.textContent=changeParts(ch).join(" · ");
 }
+
+function normalizeSearch(value){
+  return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLocaleLowerCase("es").trim();
+}
+function applyChoirSearch(){
+  if(!choirSearchInput||!rankings)return;
+  const query=normalizeSearch(choirSearchInput.value);
+  const groups=selectedGroups();
+  const matches=groups.filter(g=>normalizeSearch(g.name).includes(query));
+  const matchingNames=new Set(matches.map(g=>g.name));
+  const section=[...rankings.querySelectorAll(".level")].find(el=>el.dataset.level===selected);
+  section?.querySelectorAll("[data-choir]").forEach(el=>{
+    const matched=!query||matchingNames.has(el.dataset.choir);
+    el.hidden=!matched;
+    el.classList.toggle("search-match",Boolean(query)&&matched);
+  });
+  choirSearchClear.hidden=!query;
+  choirSearchStatus.textContent=query
+    ? `${matches.length} de ${groups.length} coros encontrados en ${selected}.`
+    :"Busca por nombre dentro de la categoría seleccionada.";
+  choirSearchEmpty.hidden=!query||matches.length>0;
+}
+function initChoirSearch(){
+  choirSearchInput?.addEventListener("input",applyChoirSearch);
+  choirSearchClear?.addEventListener("click",()=>{
+    choirSearchInput.value="";
+    applyChoirSearch();
+    choirSearchInput.focus();
+  });
+}
+
 function chooseLevel(label){
   selected=label;
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.level===selected));
@@ -970,6 +1008,7 @@ function chooseLevel(label){
   updateCategoryTotal();
   renderChart();
   renderDailyGain();
+  applyChoirSearch();
 }
 function setFilters(levels){
   const labels=["General",...levels];
@@ -981,7 +1020,7 @@ function desktopRows(rows,leader,showLevel,moves){
     const ch=groupChanges(g.name,Number(g.votes)||0);
     const votes=Number(g.votes)||0;
     const previousVotes=i>0?(Number(rows[i-1]?.votes)||0):null;
-    return `<tr>
+    return `<tr data-choir="${esc(g.name)}">
       <td class="pos"><div class="pos-main"><span class="medal">${medal(i)}</span>${i+1}</div>${movementBadge(moves.get(g.name))}</td>
       <td class="name">${esc(g.name)}${showLevel?`<span class="level-tag">${esc(g.level)}</span>`:""}</td>
       <td class="votes">${n(g.votes)}</td>
@@ -996,7 +1035,7 @@ function mobileCards(rows,leader,showLevel,moves){
     const ch=groupChanges(g.name,Number(g.votes)||0);
     const votes=Number(g.votes)||0;
     const previousVotes=i>0?(Number(rows[i-1]?.votes)||0):null;
-    return `<article class="mobile-card">
+    return `<article class="mobile-card" data-choir="${esc(g.name)}">
       <div class="mobile-rank"><span class="medal">${medal(i)}</span><span>${i+1}</span>${movementBadge(moves.get(g.name))}</div>
       <div class="mobile-main">
         <div class="mobile-name">${esc(g.name)}</div>
@@ -1061,6 +1100,7 @@ function render(data){
     sections.push(rankingSection(level,level,rows,false));
   }
   rankings.innerHTML=sections.join("");
+  applyChoirSearch();
   updateCategoryTotal();
   renderChart();
   renderDailyGain();
@@ -1103,33 +1143,45 @@ function updateStatus(data){
   }
 }
 async function load(){
-  try{
-    const stamp=Date.now();
-    const [dataRes,historyRes]=await Promise.all([
-      fetch(`${FALLBACK_DATA}?t=${stamp}`,{cache:"no-store"}),
-      fetch(`${HISTORY_DATA}?t=${stamp}`,{cache:"no-store"}).catch(()=>null)
-    ]);
-    if(!dataRes.ok)throw new Error(`HTTP ${dataRes.status}`);
-    if(historyRes?.ok){
-      const history=await historyRes.json();
-      historySnapshots=Array.isArray(history?.snapshots)
-        ? history.snapshots.filter(s=>s?.at&&s?.votes).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))
-        : [];
+  if(loadingPromise)return loadingPromise;
+  loadingPromise=(async()=>{
+    try{
+      const stamp=Date.now();
+      const dataRes=await fetch(`${FALLBACK_DATA}?t=${stamp}`,{cache:"no-store"});
+      if(!dataRes.ok)throw new Error(`HTTP ${dataRes.status}`);
+      const data=await dataRes.json();
+      const currentMark=data.updatedAt||"";
+      if(!historySnapshots.length||lastHistorySourceAt!==currentMark){
+        try{
+          const historyRes=await fetch(`${HISTORY_DATA}?t=${stamp}`,{cache:"no-store"});
+          if(historyRes.ok){
+            const history=await historyRes.json();
+            historySnapshots=Array.isArray(history?.snapshots)
+              ?history.snapshots.filter(s=>s?.at&&s?.votes).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at))
+              :[];
+            lastHistorySourceAt=currentMark;
+          }
+        }catch{
+          // Keep the previous valid history if this read fails.
+        }
+      }
+      render(data);
+    }catch(err){
+      dot.className="dot error";
+      statusEl.textContent="Sin conexión a datos";
+      warning.classList.remove("hidden");
+      warning.textContent="No se pudieron cargar datos nuevos. Se conserva el último ranking disponible.";
     }
-    render(await dataRes.json());
-  }catch(err){
-    dot.className="dot error";
-    statusEl.textContent="Sin conexión a datos";
-    warning.classList.remove("hidden");
-    warning.textContent="No se pudieron cargar los datos.";
-  }
+  })().finally(()=>{loadingPromise=null;});
+  return loadingPromise;
 }
 
 initTheme();
 initWindowPicker();
+initChoirSearch();
 initCharts();
 load();
-setInterval(load,REFRESH_MS);
+setInterval(()=>{if(document.visibilityState!=="hidden")load();},REFRESH_MS);
 
 document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="visible")load();

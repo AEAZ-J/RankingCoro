@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f8fafc">
   <meta name="description" content="Ranking de coros Juntos Suena Mejor, actualizado automáticamente.">
   <title>Ranking de coros</title>
-  <link rel="stylesheet" href="styles.css?v=20261006-07">
+  <link rel="stylesheet" href="styles.css?v=20261006-08">
 </head>
 <body>
   <main class="wrap">
@@ -108,7 +108,17 @@
       <strong id="categoryVoteCount">— votos</strong>
     </section>
 
+    
+    <section class="ranking-search-panel" role="search" aria-label="Buscar coro en el ranking">
+      <label for="choirSearch">Buscar coro</label>
+      <div class="ranking-search-input-row">
+        <input id="choirSearch" type="search" placeholder="Nombre del coro…" autocomplete="off" spellcheck="false">
+        <button id="choirSearchClear" type="button" hidden aria-label="Borrar búsqueda">×</button>
+      </div>
+      <small id="choirSearchStatus" aria-live="polite">Busca por nombre dentro de la categoría seleccionada.</small>
+    </section>
     <section id="rankings" class="rankings" aria-live="polite"></section>
+    <p id="choirSearchEmpty" class="ranking-search-empty" hidden>No hay coros que coincidan. Prueba otro nombre o selecciona General.</p>
 
     <section id="dailyGainPanel" class="daily-gain-panel" aria-live="polite">
       <div class="daily-gain-empty">Cargando ranking completo de votos sumados…</div>
@@ -118,6 +128,6 @@
       <p>Fuente: <a href="https://app.juntossuenamejor.cl/votacion" target="_blank" rel="noopener">votación pública Juntos Suena Mejor</a>.</p>
     </footer>
   </main>
-  <script src="app.js?v=20261006-08"></script>
+  <script src="app.js?v=20261006-09"></script>
 </body>
 </html>
