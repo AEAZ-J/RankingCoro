@@ -12,6 +12,7 @@ on:
       - main
     paths:
       - "app.js"
+      - "insights.js"
       - "index.html"
       - "styles.css"
       - ".github/workflows/update-ranking.yml"
