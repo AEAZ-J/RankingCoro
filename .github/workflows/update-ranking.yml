@@ -1,9 +1,9 @@
 name: Actualizar ranking
 
 on:
-  # El relevo mantiene la cadencia. Este cron solo recupera la cadena si se corta.
+  # El relevo mantiene la cadencia. Este cron de respaldo recupera la cadena si se corta.
   schedule:
-    - cron: '17 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
   push:
     branches:
@@ -25,7 +25,7 @@ permissions:
 # sobre publicaciones más recientes y no genera ejecuciones encadenadas.
 concurrency:
   group: ranking-pages-update-v2
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -107,7 +107,6 @@ jobs:
       - name: Mantener cadena de actualización
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
 
@@ -119,26 +118,10 @@ jobs:
             exit 0
           fi
 
-          # Los eventos de respaldo (schedule/push) no crean otra cadena
-          # si ya existe un workflow_dispatch reciente.
-          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
-            RUNS=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=20")
-            RECENT=$(printf '%s' "$RUNS" | jq --argjson now "$NOW_EPOCH" --arg current "$GITHUB_RUN_ID" '[
-              .workflow_runs[]
-              | select(.name == "Actualizar ranking")
-              | select(.event == "workflow_dispatch")
-              | select((.id|tostring) != $current)
-              | . + {t: ((.updated_at // .created_at) | fromdateiso8601)}
-              | select(($now - .t) < 720)
-            ] | length')
-            if [ "$RECENT" -gt 0 ]; then
-              echo "Cadena reciente detectada; el evento $EVENT_NAME no crea un relevo adicional."
-              exit 0
-            fi
-          fi
-
-          echo "Próxima actualización en 5 minutos."
-          sleep 300
+          # El resto del workflow añade algunos segundos; 270 s deja el ciclo
+          # de lectura de datos cerca de 5 minutos de inicio a inicio.
+          echo "Próxima actualización en aproximadamente 5 minutos."
+          sleep 270
 
           # Evita duplicar un relevo si apareció otra ejecución mientras esperábamos.
           NOW_EPOCH=$(date -u +%s)
