@@ -24,7 +24,7 @@ permissions:
 # Una sola ejecución integral a la vez: evita desplegar datos antiguos
 # sobre publicaciones más recientes y no genera ejecuciones encadenadas.
 concurrency:
-  group: ranking-pages-update
+  group: ranking-pages-update-v2
   cancel-in-progress: true
 
 jobs:
