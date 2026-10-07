@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Descargar repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validar archivos
         run: |
@@ -90,10 +90,10 @@ jobs:
           NODE
 
       - name: Configurar Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Subir sitio
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./_site
 
@@ -171,7 +171,7 @@ jobs:
     steps:
       - name: Publicar los datos ya preparados
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         with:
           timeout: 240000
 
@@ -188,6 +188,6 @@ jobs:
         run: sleep 20
 
       - name: Reintentar publicación
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         with:
           timeout: 240000
