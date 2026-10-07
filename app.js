@@ -1,4 +1,11 @@
 const LEVEL_ORDER = ["Inicial","Intermedio","Avanzado","Coro participante"];
+const CATEGORY_BAR_COLORS = {
+  "Inicial":"#2563eb",
+  "Intermedio":"#16a34a",
+  "Avanzado":"#9333ea",
+  "Coro participante":"#d97706"
+};
+const FALLBACK_BAR_COLOR = "#64748b";
 const FALLBACK_DATA = "data.json";
 const HISTORY_DATA = "history.json";
 const REFRESH_MS = 15000;
@@ -40,6 +47,9 @@ let chartSelectedNames = new Set();
 let chartSelectionLevel = "";
 let gainFromMs = null;
 let gainMode = "total";
+let gainUntilMs = null;
+let gainWindowHours = 6;
+let gainWindowCustom = false;
 
 function applyTheme(theme, persist=false){
   const next = theme === "dark" ? "dark" : "light";
@@ -470,13 +480,10 @@ function inputTimeValue(ms){
   return `${p.hour}:${p.minute}`;
 }
 function historyTimeBounds(){
-  const times=historySnapshots
-    .map(s=>Date.parse(s?.at))
-    .filter(Number.isFinite)
-    .sort((x,y)=>x-y);
+  const times=historySnapshots.map(s=>Date.parse(s?.at)).filter(Number.isFinite);
   return {
-    firstMs:times.length?times[0]:null,
-    lastMs:times.length?times.at(-1):null
+    firstMs:times.length?Math.min(...times):null,
+    lastMs:times.length?Math.max(...times):null
   };
 }
 function gainStartMs(){
@@ -485,138 +492,280 @@ function gainStartMs(){
   if(!Number.isFinite(gainFromMs))return firstMs;
   return Math.max(firstMs,Math.min(lastMs,gainFromMs));
 }
+function gainEndMs(){
+  const {lastMs}=historyTimeBounds();
+  if(!Number.isFinite(lastMs))return null;
+  return Number.isFinite(gainUntilMs)?Math.min(gainUntilMs,lastMs):lastMs;
+}
 function voteObservationsAround(name,targetMs){
-  let before=null;
-  let after=null;
+  let before=null,after=null;
   for(const snap of historySnapshots){
     const t=Date.parse(snap?.at);
-    const value=Number(snap?.votes?.[name]);
+    const raw=snap?.votes?.[name];
+    if(raw===null||raw===undefined)continue;
+    const value=Number(raw);
     if(!Number.isFinite(t)||!Number.isFinite(value))continue;
-    if(t<=targetMs)before={t,value};
-    if(t>=targetMs){
-      after={t,value};
-      break;
-    }
+    if(t<=targetMs&&(!before||t>before.t))before={t,value};
+    if(t>=targetMs&&(!after||t<after.t))after={t,value};
   }
   return {before,after};
 }
-
-function baselineVoteAt(name,targetMs){
+function voteAtMeasuredTime(name,targetMs){
+  if(!Number.isFinite(targetMs))return {value:null,estimated:false};
   const {before,after}=voteObservationsAround(name,targetMs);
-  if(before&&after){
-    if(after.t===before.t)return {value:before.value,partial:false};
-    const f=Math.max(0,Math.min(1,(targetMs-before.t)/(after.t-before.t)));
-    return {value:before.value+(after.value-before.value)*f,partial:false};
-  }
-  if(before)return {value:before.value,partial:false};
-  // Sin medición antes de la fecha: tomar la primera medición posterior.
-  // No asignar cero ni inventar los votos previos.
-  if(after)return {value:after.value,partial:true};
-  return {value:null,partial:true};
+  if(!before||!after)return {value:null,estimated:false};
+  if(before.t===after.t)return {value:before.value,estimated:false};
+  const f=(targetMs-before.t)/(after.t-before.t);
+  return {
+    value:before.value+(after.value-before.value)*f,
+    estimated:true
+  };
 }
-function dailyGainRows(){
+function baselineVoteAt(name,targetMs){
+  const measured=voteAtMeasuredTime(name,targetMs);
+  if(Number.isFinite(measured.value))return {value:measured.value,partial:false,estimated:measured.estimated};
+  const {before,after}=voteObservationsAround(name,targetMs);
+  if(before)return {value:before.value,partial:true,estimated:false};
+  // Solo usar la primera medición posterior como base parcial, nunca asumir cero.
+  if(after)return {value:after.value,partial:true,estimated:false};
+  return {value:null,partial:true,estimated:false};
+}
+function gainWindowInterval(){
+  const untilMs=gainEndMs();
+  const durationMs=gainWindowHours*60*60*1000;
+  return {
+    fromMs:Number.isFinite(untilMs)?untilMs-durationMs:null,
+    untilMs,
+    durationHours:gainWindowHours
+  };
+}
+function barRows(){
   const {firstMs,lastMs}=historyTimeBounds();
-  const targetMs=gainMode==="total"?null:gainStartMs();
+  const targetMs=gainMode==="gain"?gainStartMs():null;
+  const interval=gainMode==="window"?gainWindowInterval():null;
+
   const rows=selectedGroups().map(g=>{
     const current=Number(g.votes);
-    const base=gainMode==="total"
-      ? {value:0,partial:false}
-      : Number.isFinite(targetMs)
-        ? baselineVoteAt(g.name,targetMs)
-        : {value:null,partial:true};
+    let value=null,partial=false,estimated=false;
+    if(gainMode==="total"){
+      value=Number.isFinite(current)?current:null;
+    }else if(gainMode==="gain"){
+      const base=baselineVoteAt(g.name,targetMs);
+      value=Number.isFinite(current)&&Number.isFinite(base.value)?current-base.value:null;
+      partial=base.partial;
+      estimated=base.estimated;
+    }else if(interval&&Number.isFinite(interval.fromMs)&&Number.isFinite(interval.untilMs)){
+      const earlier=voteAtMeasuredTime(g.name,interval.fromMs);
+      const later=voteAtMeasuredTime(g.name,interval.untilMs);
+      if(Number.isFinite(earlier.value)&&Number.isFinite(later.value)){
+        value=later.value-earlier.value;
+        estimated=earlier.estimated||later.estimated;
+      }
+    }
     return {
       name:g.name,
-      gain:Number.isFinite(current)&&Number.isFinite(base.value)?current-base.value:null,
-      partial:base.partial
+      level:g.level,
+      gain:value,
+      partial,
+      estimated
     };
   }).sort((x,y)=>{
-    if(x.gain===null)return y.gain===null?x.name.localeCompare(y.name,"es"):1;
-    if(y.gain===null)return -1;
+    if(!Number.isFinite(x.gain))return Number.isFinite(y.gain)?1:x.name.localeCompare(y.name,"es");
+    if(!Number.isFinite(y.gain))return -1;
     return y.gain-x.gain||x.name.localeCompare(y.name,"es");
   });
-  return {rows,targetMs,firstMs,lastMs,
+
+  return {
+    rows,firstMs,lastMs,targetMs,interval,
     partialCount:rows.filter(r=>r.partial&&Number.isFinite(r.gain)).length,
-    missingCount:rows.filter(r=>!Number.isFinite(r.gain)).length};
+    estimatedCount:rows.filter(r=>r.estimated&&Number.isFinite(r.gain)).length,
+    missingCount:rows.filter(r=>!Number.isFinite(r.gain)).length
+  };
+}
+function dailyGainRows(){
+  return barRows();
+}
+function localNoonMs(referenceMs,dayOffset=0){
+  const p=santiagoParts(referenceMs);
+  const localDay=new Date(Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day)+dayOffset,12));
+  return santiagoLocalToUtcMs(localDay.getUTCFullYear(),localDay.getUTCMonth()+1,localDay.getUTCDate(),12,0);
+}
+function parseChileDateTime(dateStr,timeStr){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)||!/^\d{2}:\d{2}$/.test(timeStr))return null;
+  const [yy,mm,dd]=dateStr.split("-").map(Number);
+  const [hh,mi]=timeStr.split(":").map(Number);
+  if(hh>23||mi>59||mm<1||mm>12||dd<1||dd>31)return null;
+  const converted=santiagoLocalToUtcMs(yy,mm,dd,hh,mi);
+  return Number.isFinite(converted)?converted:null;
+}
+function setBarQuickEnd(preset){
+  const {lastMs}=historyTimeBounds();
+  if(!Number.isFinite(lastMs))return;
+  if(preset==="last")gainUntilMs=null;
+  else if(preset==="today-noon")gainUntilMs=localNoonMs(lastMs,0);
+  else if(preset==="yesterday-noon")gainUntilMs=localNoonMs(lastMs,-1);
+  else return;
+  gainMode="window";
+  renderDailyGain();
 }
 function wireDailyGainControls(firstMs,lastMs){
-  const modeInput=dailyGainPanel?.querySelector("#gainMode");
+  const mode=dailyGainPanel?.querySelector("#gainMode");
   const dateInput=dailyGainPanel?.querySelector("#gainFromDate");
   const timeInput=dailyGainPanel?.querySelector("#gainFromTime");
-  const resetButton=dailyGainPanel?.querySelector("#gainFromStart");
-  modeInput?.addEventListener("change",()=>{
-    gainMode=modeInput.value==="gain"?"gain":"total";
+  const reset=dailyGainPanel?.querySelector("#gainFromStart");
+  const durationSelect=dailyGainPanel?.querySelector("#gainWindowDuration");
+  const customHours=dailyGainPanel?.querySelector("#gainWindowCustomHours");
+
+  mode?.addEventListener("change",()=>{
+    gainMode=["gain","window"].includes(mode.value)?mode.value:"total";
     renderDailyGain();
   });
-  if(!dateInput||!timeInput||!Number.isFinite(firstMs)||!Number.isFinite(lastMs))return;
-  const applySelection=()=>{
-    if(!dateInput.value||!timeInput.value)return;
-    const [year,month,day]=dateInput.value.split("-").map(Number);
-    const [hour,minute]=timeInput.value.split(":").map(Number);
-    const chosen=santiagoLocalToUtcMs(year,month,day,hour,minute);
-    if(!Number.isFinite(chosen))return;
-    gainFromMs=Math.max(firstMs,Math.min(lastMs,chosen));
-    gainMode="gain";
+  dateInput?.addEventListener("change",applyDateTime);
+  timeInput?.addEventListener("change",applyDateTime);
+  function applyDateTime(){
+    if(!dateInput||!timeInput||!Number.isFinite(firstMs)||!Number.isFinite(lastMs))return;
+    const ms=parseChileDateTime(dateInput.value,timeInput.value);
+    if(!Number.isFinite(ms))return;
+    if(gainMode==="gain")gainFromMs=Math.max(firstMs,Math.min(lastMs,ms));
+    if(gainMode==="window")gainUntilMs=Math.min(lastMs,ms);
     renderDailyGain();
-  };
-  dateInput.addEventListener("change",applySelection);
-  timeInput.addEventListener("change",applySelection);
-  resetButton?.addEventListener("click",()=>{
+  }
+  reset?.addEventListener("click",()=>{
     gainFromMs=null;
-    gainMode="gain";
     renderDailyGain();
+  });
+  durationSelect?.addEventListener("change",()=>{
+    if(durationSelect.value==="custom"){
+      gainWindowCustom=true;
+    }else{
+      gainWindowCustom=false;
+      const hrs=Number(durationSelect.value);
+      if(Number.isFinite(hrs)&&hrs>=0.5)gainWindowHours=hrs;
+    }
+    renderDailyGain();
+  });
+  customHours?.addEventListener("change",()=>{
+    const hours=Number(customHours.value);
+    if(Number.isFinite(hours)){
+      gainWindowCustom=true;
+      gainWindowHours=Math.min(336,Math.max(0.5,Math.round(hours*2)/2));
+      renderDailyGain();
+    }
+  });
+  dailyGainPanel?.querySelectorAll("[data-gain-preset]").forEach(button=>{
+    button.addEventListener("click",()=>setBarQuickEnd(button.dataset.gainPreset));
   });
 }
 function renderDailyGain(){
   if(!dailyGainPanel)return;
-  const {rows,targetMs,firstMs,lastMs,partialCount,missingCount}=dailyGainRows();
-  const isTotal=gainMode==="total";
+  const {rows,targetMs,interval,firstMs,lastMs,partialCount,estimatedCount,missingCount}=barRows();
+  const isTotal=gainMode==="total",isWindow=gainMode==="window";
   const hasHistory=Number.isFinite(firstMs)&&Number.isFinite(lastMs);
-  const startMs=hasHistory?(Number.isFinite(targetMs)?targetMs:firstMs):null;
+  const fromMs=Number.isFinite(targetMs)?targetMs:firstMs;
+  const untilMs=Number.isFinite(interval?.untilMs)?interval.untilMs:lastMs;
   const dataMs=Date.parse(latestData?.updatedAt);
-  const untilMs=Number.isFinite(dataMs)?dataMs:lastMs;
+  const currentMs=Number.isFinite(dataMs)?dataMs:lastMs;
   const maxValue=Math.max(1,...rows.map(r=>Number.isFinite(r.gain)?Math.max(0,r.gain):0));
-  const atFirst=!Number.isFinite(gainFromMs);
   const category=selected==="General"?"Todos los coros":selected;
+
+  let detail="Votos totales acumulados";
+  if(gainMode==="gain")detail=hasHistory
+    ?`Ganados desde ${dailyGainDateLabel(fromMs)} hasta ${dailyGainDateLabel(currentMs)}`
+    :"Sin historial disponible";
+  if(isWindow)detail=hasHistory
+    ?`Ventana de ${n(gainWindowHours)} h: ${dailyGainDateLabel(interval.fromMs)} → ${dailyGainDateLabel(interval.untilMs)}`
+    :"Sin historial disponible";
 
   const header=`
     <div class="daily-gain-head">
       <div>
         <h2>Gráfico de barras · Ranking ${esc(selected)}</h2>
-        <p>${esc(category)} · ${isTotal?"Total de votos":hasHistory?`Ganados desde ${dailyGainDateLabel(startMs)}`:"Sin datos históricos"}${Number.isFinite(untilMs)?` · actualizado ${dailyGainDateLabel(untilMs)}`:""}</p>
+        <p>${esc(category)} · ${esc(detail)}${isTotal&&Number.isFinite(currentMs)?` · actualizado ${dailyGainDateLabel(currentMs)}`:""}</p>
       </div>
       <strong>${rows.length} ${rows.length===1?"coro":"coros"}</strong>
     </div>`;
 
-  const controls=`
-    <div class="daily-gain-controls" aria-label="Elegir votos totales o fecha inicial">
-      <label>
-        <span>Mostrar</span>
-        <select id="gainMode">
-          <option value="total" ${isTotal?"selected":""}>Todos los votos (total)</option>
-          <option value="gain" ${isTotal?"":"selected"}>Votos ganados desde fecha</option>
-        </select>
-      </label>
-      ${!isTotal&&hasHistory?`
-      <label>
-        <span>Desde</span>
-        <input id="gainFromDate" type="date" min="${inputDateValue(firstMs)}" max="${inputDateValue(lastMs)}" value="${inputDateValue(startMs)}">
-      </label>
-      <label>
-        <span>Hora (Chile)</span>
-        <input id="gainFromTime" type="time" step="60" value="${inputTimeValue(startMs)}">
-      </label>
-      <button type="button" id="gainFromStart" ${atFirst?"disabled":""}>Primer registro</button>`:""}
+  const modeOptions=[
+    ["total","Todos los votos (total)"],
+    ["gain","Ganados desde fecha y hora"],
+    ["window","Ventana de horas hacia atrás"]
+  ];
+  const modeSelect=`
+    <label>
+      <span>Mostrar</span>
+      <select id="gainMode" aria-label="Tipo de gráfico de barras">
+        ${modeOptions.map(([key,label])=>`<option value="${key}" ${gainMode===key?"selected":""}>${label}</option>`).join("")}
+      </select>
+    </label>`;
+
+  const controls=!isTotal&&hasHistory
+    ? isWindow
+      ?`
+        <label>
+          <span>Hasta (fecha)</span>
+          <input id="gainFromDate" type="date"
+            min="${inputDateValue(firstMs)}" max="${inputDateValue(lastMs)}"
+            value="${inputDateValue(untilMs)}">
+        </label>
+        <label>
+          <span>Hora (Chile)</span>
+          <input id="gainFromTime" type="time" step="60" value="${inputTimeValue(untilMs)}">
+        </label>
+        <label>
+          <span>Horas hacia atrás</span>
+          <select id="gainWindowDuration">
+            ${[1,3,6,12,24,48,72,168].map(hr=>`
+              <option value="${hr}" ${!gainWindowCustom&&gainWindowHours===hr?"selected":""}>${hr} h</option>`).join("")}
+            <option value="custom" ${gainWindowCustom?"selected":""}>Personalizar…</option>
+          </select>
+        </label>
+        ${gainWindowCustom?`
+        <label>
+          <span>Horas (0,5–336)</span>
+          <input id="gainWindowCustomHours" type="number" min="0.5" max="336" step="0.5"
+            value="${gainWindowHours}">
+        </label>`:""}
+        <div class="gain-quick-presets" aria-label="Hora final rápida">
+          <span>Hasta:</span>
+          <button type="button" data-gain-preset="last">Último registro</button>
+          <button type="button" data-gain-preset="today-noon">Hoy 12:00</button>
+          <button type="button" data-gain-preset="yesterday-noon">Ayer 12:00</button>
+        </div>`
+      :`
+        <label>
+          <span>Desde (fecha)</span>
+          <input id="gainFromDate" type="date"
+            min="${inputDateValue(firstMs)}" max="${inputDateValue(lastMs)}"
+            value="${inputDateValue(fromMs)}">
+        </label>
+        <label>
+          <span>Hora (Chile)</span>
+          <input id="gainFromTime" type="time" step="60" value="${inputTimeValue(fromMs)}">
+        </label>
+        <button id="gainFromStart" type="button" ${Number.isFinite(gainFromMs)?"":"disabled"}>Primer registro</button>`
+    :"";
+
+  const controlMarkup=`
+    <div class="daily-gain-controls" aria-label="Configurar el período del gráfico de barras">
+      ${modeSelect}
+      ${controls}
     </div>`;
 
+  const levels=[...new Set(rows.map(r=>r.level))].sort(levelSort);
+  const colorLegend=selected==="General"?`
+    <div class="daily-gain-color-legend" aria-label="Colores de cada categoría">
+      ${levels.map(level=>`
+        <span><i style="background:${CATEGORY_BAR_COLORS[level]||FALLBACK_BAR_COLOR}"></i>${esc(level||"Otra categoría")}</span>`).join("")}
+    </div>`:"";
 
   if(!isTotal&&!hasHistory){
-    dailyGainPanel.innerHTML=header+controls+
-      '<div class="daily-gain-empty">No hay historial suficiente. Selecciona “Todos los votos (total)”.</div>';
+    dailyGainPanel.innerHTML=header+controlMarkup+
+      '<div class="daily-gain-empty">Aún no existe historial para ese cálculo. Prueba “Todos los votos (total)”.</div>';
     wireDailyGainControls(firstMs,lastMs);
     return;
   }
   if(!rows.length){
-    dailyGainPanel.innerHTML=header+controls+
+    dailyGainPanel.innerHTML=header+controlMarkup+
       '<div class="daily-gain-empty">No hay coros en esta categoría.</div>';
     wireDailyGainControls(firstMs,lastMs);
     return;
@@ -626,24 +775,34 @@ function renderDailyGain(){
     const valid=Number.isFinite(item.gain);
     const value=valid?Math.round(item.gain):null;
     const width=valid&&item.gain>0?Math.max(1.5,item.gain/maxValue*100):0;
-    const numberText=value===null?"—":(isTotal?"":value>=0?"+":"")+n(value)+(item.partial?" *":"");
-    const desc=item.partial?" · desde su primera medición posterior a la fecha elegida":"";
+    const numberText=value===null?"—":(isTotal?"":value>=0?"+":"")+n(value)+(item.partial?" *":"")+(item.estimated?" ≈":"");
+    const desc=[item.level,item.partial?"base parcial":null,item.estimated?"valor interpolado":null].filter(Boolean).join(" · ");
+    const color=CATEGORY_BAR_COLORS[item.level]||FALLBACK_BAR_COLOR;
     return `
       <div class="daily-gain-row">
         <div class="daily-gain-rank">#${i+1}</div>
-        <div class="daily-gain-name" title="${esc(item.name+desc)}">${esc(item.name)}</div>
+        <div class="daily-gain-name" title="${esc(item.name+" · "+desc)}">${esc(item.name)}</div>
         <div class="daily-gain-track">
-          <div class="daily-gain-fill" style="width:${width}%;${width===0?"min-width:0;":""}"></div>
+          <div class="daily-gain-fill" style="width:${width}%;--bar-color:${color};${width===0?"min-width:0;":""}"></div>
         </div>
         <strong class="daily-gain-value" title="${esc(desc)}">${numberText}</strong>
       </div>`;
   }).join("");
-  const note=isTotal
-    ?"Votos totales actuales: incluye los votos anteriores a nuestro primer registro. No se resta ninguna medición."
-    :`Ganancias calculadas únicamente con mediciones disponibles. ${partialCount?`* En ${partialCount} coro(s) nuevos se usa su primer dato posterior como base, sin suponer cero votos anteriores.`:""} ${missingCount?`Hay ${missingCount} coro(s) sin datos históricos comparables.`:""}`;
 
-  dailyGainPanel.innerHTML=header+controls+`
-    <div class="daily-gain-bars" role="img" aria-label="${esc(isTotal?"Votos totales por coro":"Votos ganados por coro desde fecha elegida")}">
+  let note="Votos totales actuales: incluye los votos anteriores a nuestro primer registro.";
+  if(gainMode==="gain"){
+    note="Ganancias calculadas a partir del historial disponible.";
+    if(partialCount)note+=` * ${partialCount} coro(s) sin medición previa a la fecha: usamos su primera medición disponible, sin asumir cero.`;
+  }
+  if(isWindow){
+    note=`Periodo: ${dailyGainDateLabel(interval.fromMs)} a ${dailyGainDateLabel(interval.untilMs)}. Se comparan los votos en ambos extremos, no los totales actuales.`;
+    if(Number.isFinite(firstMs)&&interval.fromMs<firstMs)note+=` La ventana empieza antes del primer registro disponible (`+dailyGainDateLabel(firstMs)+`), por lo que algunos resultados no se pueden calcular.`;
+    if(missingCount)note+=` ${missingCount} coro(s) sin registros suficientes para ambos extremos aparecen como —.`;
+  }
+  if(estimatedCount)note+=` ≈ ${estimatedCount} valor(es) se estimaron interpolando entre registros.`;
+
+  dailyGainPanel.innerHTML=header+controlMarkup+colorLegend+`
+    <div class="daily-gain-bars" role="img" aria-label="${esc(isTotal?"Votos totales":isWindow?"Votos ganados durante la ventana":"Votos ganados desde fecha")}">
       ${bars}
     </div>
     <p class="daily-gain-note">${esc(note)}</p>`;
