@@ -6,8 +6,10 @@ const CATEGORY_BAR_COLORS = {
   "Coro participante":"#d97706"
 };
 const FALLBACK_BAR_COLOR = "#64748b";
+const LIVE_DATA = "https://raw.githubusercontent.com/AEAZ-J/RankingCoro/main/data.json";
+const LIVE_HISTORY = "https://raw.githubusercontent.com/AEAZ-J/RankingCoro/main/history.json";
 const FALLBACK_DATA = "data.json";
-const HISTORY_DATA = "history.json";
+const FALLBACK_HISTORY = "history.json";
 const REFRESH_MS = 60 * 1000;
 const DELAY_WARNING_MS = 8 * 60 * 1000;
 
@@ -1498,25 +1500,31 @@ function updateStatus(data){
     warning.textContent="";
   }
 }
+async function fetchRankingJson(primaryUrl,fallbackUrl,stamp){
+  try{
+    const liveRes=await fetch(`${primaryUrl}?t=${stamp}`,{cache:"no-store"});
+    if(liveRes.ok)return await liveRes.json();
+  }catch{
+    // GitHub raw unavailable: fall back to the copy bundled in Pages.
+  }
+  const fallbackRes=await fetch(`${fallbackUrl}?t=${stamp}`,{cache:"no-store"});
+  if(!fallbackRes.ok)throw new Error(`HTTP ${fallbackRes.status}`);
+  return await fallbackRes.json();
+}
 async function load(){
   if(loadingPromise)return loadingPromise;
   loadingPromise=(async()=>{
     try{
       const stamp=Date.now();
-      const dataRes=await fetch(`${FALLBACK_DATA}?t=${stamp}`,{cache:"no-store"});
-      if(!dataRes.ok)throw new Error(`HTTP ${dataRes.status}`);
-      const data=await dataRes.json();
+      const data=await fetchRankingJson(LIVE_DATA,FALLBACK_DATA,stamp);
       const currentMark=data.updatedAt||"";
       if(!historySnapshots.length||lastHistorySourceAt!==currentMark){
         try{
-          const historyRes=await fetch(`${HISTORY_DATA}?t=${stamp}`,{cache:"no-store"});
-          if(historyRes.ok){
-            const history=await historyRes.json();
-            historySnapshots=Array.isArray(history?.snapshots)
-              ?history.snapshots.filter(s=>s?.at&&s?.votes).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at))
-              :[];
-            lastHistorySourceAt=currentMark;
-          }
+          const history=await fetchRankingJson(LIVE_HISTORY,FALLBACK_HISTORY,stamp);
+          historySnapshots=Array.isArray(history?.snapshots)
+            ?history.snapshots.filter(s=>s?.at&&s?.votes).sort((x,y)=>Date.parse(x.at)-Date.parse(y.at))
+            :[];
+          lastHistorySourceAt=currentMark;
         }catch{
           // Keep the previous valid history if this read fails.
         }
