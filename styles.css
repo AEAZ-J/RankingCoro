@@ -228,6 +228,14 @@ button.window-chip{cursor:pointer}
 .chart-canvas{min-width:0}
 .chart-canvas svg{display:block;width:100%;height:auto;min-height:250px;overflow:visible}
 .chart-grid{stroke:var(--border-soft);stroke-width:1}
+.chart-grid-layer{pointer-events:none}
+.chart-grid-vertical{stroke-width:1;opacity:.9}
+.chart-grid-minor{
+  stroke:var(--border-soft);
+  stroke-width:.75;
+  stroke-dasharray:2 4;
+  opacity:.48;
+}
 .chart-axis-label{fill:var(--muted);font-size:11px}
 .chart-gains{
   border:1px solid var(--border-soft);

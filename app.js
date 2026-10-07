@@ -416,6 +416,25 @@ function renderChart(){
     return `<line x1="${pad.l}" y1="${yy}" x2="${width-pad.r}" y2="${yy}" class="chart-grid"/>
       <text x="${pad.l-8}" y="${yy+4}" text-anchor="end" class="chart-axis-label">${label}</text>`;
   }).join("");
+  // 5 divisiones principales en X/Y; cuadrícula secundaria cada 1/4 de una división.
+  // Las líneas son puramente visuales y no afectan el cálculo de votos.
+  const xMajorGrid=[0,.25,.5,.75,1].map(r=>{
+    const xx=x(minT+r*(maxT-minT));
+    return `<line x1="${xx}" y1="${pad.t}" x2="${xx}" y2="${height-pad.b}" class="chart-grid chart-grid-vertical"/>`;
+  }).join("");
+  const xMinorGrid=Array.from({length:21},(_,i)=>i)
+    .filter(i=>i%5!==0)
+    .map(i=>{
+      const xx=x(minT+(i/20)*(maxT-minT));
+      return `<line x1="${xx}" y1="${pad.t}" x2="${xx}" y2="${height-pad.b}" class="chart-grid-minor"/>`;
+    }).join("");
+  const yMinorGrid=Array.from({length:17},(_,i)=>i)
+    .filter(i=>i%4!==0)
+    .map(i=>{
+      const v=minY+(i/16)*(maxY-minY);
+      const yy=y(v);
+      return `<line x1="${pad.l}" y1="${yy}" x2="${width-pad.r}" y2="${yy}" class="chart-grid-minor"/>`;
+    }).join("");
   const xTicks=[0,.25,.5,.75,1].map(r=>{
     const tt=minT+r*(maxT-minT);
     const xx=x(tt);
@@ -436,7 +455,12 @@ function renderChart(){
     <div class="chart-plot">
       <svg viewBox="0 0 ${width} ${height}" role="img" tabindex="0"
         aria-label="Gráfico histórico. Toca una línea o usa las flechas para consultar sus valores.">
-        ${yTicks}
+        <g class="chart-grid-layer" aria-hidden="true">
+          ${xMinorGrid}
+          ${yMinorGrid}
+          ${xMajorGrid}
+          ${yTicks}
+        </g>
         ${xTicks}
         ${lines}
         <circle class="chart-focus-dot" cx="0" cy="0" r="5" hidden/>
