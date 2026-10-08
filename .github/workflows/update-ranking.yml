@@ -1,10 +1,11 @@
 name: Actualizar ranking
 
 on:
-  # Reinicia el worker periódicamente. Si GitHub retrasa este cron,
-  # el worker anterior sigue actualizando los datos durante varias horas.
+  # Intenta renovar el worker cada 5 minutos. Si GitHub retrasa o salta
+  # ejecuciones programadas, el worker ya activo sigue actualizando datos
+  # por varias horas y evita huecos largos.
   schedule:
-    - cron: '17 * * * *'
+    - cron: '2-57/5 * * * *'
   workflow_dispatch:
   push:
     branches:
