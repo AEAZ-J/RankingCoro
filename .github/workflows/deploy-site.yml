@@ -1,0 +1,78 @@
+name: Publicar sitio
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "app.js"
+      - "insights.js"
+      - "index.html"
+      - "styles.css"
+      - ".github/workflows/deploy-site.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ranking-pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment:
+      name: ranking-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v7
+
+      - name: Validar sitio
+        run: |
+          node --check app.js
+          node --check insights.js
+
+      - name: Preparar sitio
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp index.html styles.css app.js insights.js data.json history.json _site/
+
+      - name: Agregar diagnóstico
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const data=JSON.parse(readFileSync('_site/data.json','utf8'));
+          const history=JSON.parse(readFileSync('_site/history.json','utf8'));
+          const health={
+            deployedFromWorkflowAt:new Date().toISOString(),
+            githubRunId:process.env.GITHUB_RUN_ID||null,
+            githubRunAttempt:process.env.GITHUB_RUN_ATTEMPT||null,
+            sourceUpdatedAt:data.updatedAt||null,
+            lastAttemptAt:data.lastAttemptAt||null,
+            stale:Boolean(data.stale),
+            error:data.stale?(data.error||'Datos no actualizados'):null,
+            snapshots:Array.isArray(history.snapshots)?history.snapshots.length:0
+          };
+          writeFileSync('_site/health.json',JSON.stringify(health,null,2)+'\n');
+          NODE
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v6
+
+      - name: Subir sitio
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./_site
+
+      - name: Publicar sitio
+        id: deployment
+        uses: actions/deploy-pages@v5
+        with:
+          timeout: 240000
